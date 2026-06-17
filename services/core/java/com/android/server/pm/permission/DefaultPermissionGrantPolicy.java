@@ -960,8 +960,8 @@ final class DefaultPermissionGrantPolicy {
         String[] notifPackages = {
             "com.android.contacts",
             android.util.PackageUtils.getFirstPartyAppSourcePackageName(mContext),
-            "app.grapheneos.camera",
-            "app.attestation.auditor",
+            "app.mosaicos.camera",
+            "app.mosaicos.auditor",
             "com.stevesoltys.seedvault",
         };
         for (String pkg : notifPackages) {

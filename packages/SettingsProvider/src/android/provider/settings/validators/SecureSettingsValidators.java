@@ -520,5 +520,34 @@ public class SecureSettingsValidators {
                 new InclusiveIntegerRangeValidator(0, 1));
         VALIDATORS.put(Secure.IDENTITY_CHECK_NOTIFICATION_VIEW_DETAILS_CLICKED,
                 new InclusiveIntegerRangeValidator(0, 1));
+        VALIDATORS.put(Secure.NETWORK_TRAFFIC_MODE,
+                new InclusiveIntegerRangeValidator(0, 3));
+        VALIDATORS.put(Secure.NETWORK_TRAFFIC_POSITION,
+                new InclusiveIntegerRangeValidator(0, 2));
+        VALIDATORS.put(Secure.NETWORK_TRAFFIC_AUTOHIDE,
+                BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.NETWORK_TRAFFIC_UNITS,
+                new InclusiveIntegerRangeValidator(0, 4));
+        VALIDATORS.put(Secure.NETWORK_TRAFFIC_SHOW_UNITS,
+                new InclusiveIntegerRangeValidator(0, 2));
+        VALIDATORS.put(Secure.SHOW_NAVIGATION_PILL, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.THEME_AMOLED_BLACK, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_GESTURE, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_TIMEOUT,
+                new InclusiveIntegerRangeValidator(0, 3600));
+        VALIDATORS.put(Secure.STATUS_BAR_QUICK_QS_PULLDOWN,
+                new InclusiveIntegerRangeValidator(0, 3));
+        VALIDATORS.put(Secure.PILL_LENGTH_MODE,
+                new InclusiveIntegerRangeValidator(0, 2));
+        VALIDATORS.put(Secure.PILL_HEIGHT_MODE,
+                new InclusiveIntegerRangeValidator(0, 4));
+        VALIDATORS.put(Secure.BACKGROUND_BLUR_RADIUS,
+                new InclusiveFloatRangeValidator(0, 1000));
+        VALIDATORS.put(Secure.BACKGROUND_TRANSPARENCY,
+                new InclusiveFloatRangeValidator(0, 1));
+        VALIDATORS.put(Secure.NOTIFICATION_TRANSPARENCY,
+                new InclusiveFloatRangeValidator(0, 1));
+        VALIDATORS.put(Secure.BACKGROUND_ACCENT, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.NOTIFICATION_ACCENT, BOOLEAN_VALIDATOR);
     }
 }

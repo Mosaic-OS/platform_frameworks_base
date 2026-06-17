@@ -130,4 +130,6 @@
     <string name="unarchive_clear_storage_button" msgid="1549537154535608744">"Tárhely ürítése"</string>
     <string name="unarchive_settings_button" msgid="3504171760009177425">"Beállítások"</string>
     <string name="close" msgid="5214897374055647996">"Bezárás"</string>
+	<string name="more_options_button">További opciók</string>
+    <string name="allow_network_permission_checkbox">Hálózati hozzáférés engedélyezése</string>
 </resources>

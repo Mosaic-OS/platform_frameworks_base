@@ -67,6 +67,9 @@ public class ThemeOverlayApplier implements Dumpable {
     @VisibleForTesting
     static final String SYSUI_PACKAGE = "com.android.systemui";
 
+    static final String OVERLAY_BLACK_THEME =
+            "com.mosaicos.blacktheme";
+
     static final String OVERLAY_CATEGORY_DYNAMIC_COLOR =
             "android.theme.customization.dynamic_color";
     static final String OVERLAY_CATEGORY_ACCENT_COLOR =
@@ -204,8 +207,9 @@ public class ThemeOverlayApplier implements Dumpable {
             Runnable onComplete
     ) {
 
-        mBgExecutor.execute(() -> {
+        final boolean isBlackMode = mIsBlackMode;
 
+        mBgExecutor.execute(() -> {
             // Disable all overlays that have not been specified in the user setting.
             final Set<String> overlayCategoriesToDisable = new HashSet<>(THEME_CATEGORIES);
             final Set<String> targetPackagesToQuery = overlayCategoriesToDisable.stream()
@@ -250,14 +254,68 @@ public class ThemeOverlayApplier implements Dumpable {
 
             try {
                 mOverlayManager.commit(transaction.build());
-                if (onComplete != null) {
-                    Log.d(TAG, "Executing onComplete runnable");
-                    mMainExecutor.execute(onComplete);
-                }
             } catch (SecurityException | IllegalStateException e) {
                 Log.e(TAG, "setEnabled failed", e);
             }
+
+            // checkDarkUserOverlays() runs onComplete exactly once
+            checkDarkUserOverlays(currentUser, onComplete, isBlackMode);
         });
+    }
+
+    private void checkDarkUserOverlays(int currentUser, Runnable onComplete, boolean isBlackMode) {
+        OverlayManagerTransaction.Builder transaction = getTransactionBuilder();
+        try {
+            transaction.setEnabled(getOverlayID(OVERLAY_BLACK_THEME), isBlackMode, currentUser);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Black theme overlay not found, skipping", e);
+        }
+        try {
+            // 'android:neutral' is a fabricated/runtime overlay that may not exist; a missing
+            // neutral overlay must not abort enabling the black overlay or running onComplete.
+            transaction.setEnabled(getOverlayID("android:neutral"), !isBlackMode, currentUser);
+        } catch (IllegalStateException e) {
+            Log.d(TAG, "android:neutral overlay not found, skipping");
+        }
+        try {
+            mOverlayManager.commit(transaction.build());
+        } catch (SecurityException | IllegalStateException e) {
+            Log.e(TAG, "setEnabled failed", e);
+        }
+        if (onComplete != null) {
+            Log.d(TAG, "Executing onComplete runnable");
+            mMainExecutor.execute(onComplete);
+        }
+    }
+
+    private volatile boolean mIsBlackMode = false;
+
+    /**
+     * Sets whether the next {@link #applyCurrentUserOverlays} should enable the AMOLED black
+     * theme overlay. Set by ThemeOverlayController from the THEME_AMOLED_BLACK setting (and night
+     * mode) immediately before each call.
+     */
+    public void setBlackMode(boolean blackMode) {
+        mIsBlackMode = blackMode;
+    }
+
+    private OverlayIdentifier getOverlayID(String name) throws IllegalStateException {
+        if (name.contains(":")) {
+            final String[] value = name.split(":");
+            final String pkgName = value[0];
+            final String overlayName = value[1];
+            final List<OverlayInfo> infos =
+                    mOverlayManager.getOverlayInfosForTarget(pkgName, UserHandle.CURRENT);
+            for (OverlayInfo info : infos) {
+                if (overlayName.equals(info.getOverlayName()))
+                    return info.getOverlayIdentifier();
+            }
+            throw new IllegalStateException("No overlay found for " + name);
+        }
+        OverlayInfo overlayInfo = mOverlayManager.getOverlayInfo(name, UserHandle.CURRENT);
+        if (overlayInfo != null)
+            return overlayInfo.getOverlayIdentifier();
+        throw new IllegalStateException("No overlay found for " + name);
     }
 
     @VisibleForTesting

@@ -37,6 +37,7 @@ phony {
         "NoCutoutOverlay",
         "TransparentNavigationBarOverlay",
         "NotesRoleEnabledOverlay",
+        "BlackTheme",
         "preinstalled-packages-platform-overlays.xml",
     ],
 }

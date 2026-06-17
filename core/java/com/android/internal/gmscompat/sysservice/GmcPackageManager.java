@@ -234,7 +234,7 @@ public class GmcPackageManager extends ApplicationPackageManager {
     }
 
     private static final ArraySet<String> HIDDEN_PACKAGES = new ArraySet<>(new String[] {
-            "app.attestation.auditor",
+            "app.mosaicos.auditor",
     });
 
     private static void throwIfHidden(String pkgName) throws NameNotFoundException {

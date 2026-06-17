@@ -22,6 +22,8 @@ import android.content.res.Resources
 import android.gui.EarlyWakeupInfo
 import android.os.Binder
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemProperties
 import android.os.Trace
 import android.os.Trace.TRACE_TAG_APP
@@ -43,6 +45,7 @@ import com.android.systemui.keyguard.ui.transitions.BlurConfig
 import com.android.systemui.res.R
 import java.io.PrintWriter
 import javax.inject.Inject
+import android.content.Context
 
 @SysUISingleton
 open class BlurUtils
@@ -52,6 +55,7 @@ constructor(
     blurConfig: BlurConfig,
     private val crossWindowBlurListeners: CrossWindowBlurListeners,
     dumpManager: DumpManager,
+	@Main private val context: Context,
 ) : Dumpable {
     val minBlurRadius = resources.getDimensionPixelSize(R.dimen.min_window_blur_radius).toFloat()
     val maxBlurRadius =
@@ -76,10 +80,32 @@ constructor(
     /** When this is true, early wakeup flag is not reset on surface flinger when blur drops to 0 */
     private var persistentEarlyWakeupRequired = false
 
+    // Cached background_blur_radius (refreshed via a ContentObserver) so blurRadiusOfRatio() does
+    // not perform a Settings IPC on every animation frame. -1f means "unset / use lerp default".
+    @Volatile private var customBackgroundBlurRadius: Float = -1f
+
     init {
         dumpManager.registerDumpable(this)
         earlyWakeupInfo.token = Binder()
+        customBackgroundBlurRadius = readCustomBackgroundBlurRadius()
+        context.contentResolver.registerContentObserver(
+            android.provider.Settings.Secure.getUriFor("background_blur_radius"),
+            false,
+            object : android.database.ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    customBackgroundBlurRadius = readCustomBackgroundBlurRadius()
+                }
+            },
+        )
     }
+
+    private fun readCustomBackgroundBlurRadius(): Float =
+        try {
+            android.provider.Settings.Secure.getFloat(
+                context.contentResolver, "background_blur_radius", -1f)
+        } catch (e: Exception) {
+            -1f
+        }
 
     @VisibleForTesting
     open fun createTransaction(): SurfaceControl.Transaction = SurfaceControl.Transaction()
@@ -88,6 +114,12 @@ constructor(
     fun blurRadiusOfRatio(ratio: Float): Float {
         if (ratio == 0f) {
             return 0f
+        }
+        val customRadius = customBackgroundBlurRadius
+        if (customRadius >= 0f) {
+            // Clamp so a corrupt/out-of-range setting cannot push an unbounded blur radius to
+            // SurfaceFlinger.
+            return (customRadius * ratio).coerceIn(0f, maxBlurRadius)
         }
         return MathUtils.lerp(minBlurRadius, maxBlurRadius, ratio)
     }

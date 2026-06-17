@@ -308,7 +308,7 @@ public class AndroidPackageUtils {
         // which makes the boot-time package verification roll them back to the system image version
         switch (pkg.getManifestPackageName()) {
             case "app.vanadium.browser":
-            case "app.grapheneos.pdfviewer":
+            case "app.mosaicos.pdfviewer":
                 break;
             default:
                 return false;

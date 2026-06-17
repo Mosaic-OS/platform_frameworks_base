@@ -225,6 +225,14 @@ public abstract class UserManagerInternal {
     public abstract void onEphemeralUserStop(int userId);
 
     /**
+     * Sentinel {@code token} for {@link #createUserEvenWhenDisallowed} marking the user as a
+     * hidden system user (the secret profile). When this token is used, creation does not
+     * broadcast {@link android.content.Intent#ACTION_USER_ADDED} and does not auto-enable the
+     * user switcher, so the user's existence is not revealed to other apps/components.
+     */
+    public static final Object CREATE_USER_HIDDEN_TOKEN = new Object();
+
+    /**
      * Same as UserManager.createUser(), but bypasses the check for
      * {@link UserManager#DISALLOW_ADD_USER} and {@link UserManager#DISALLOW_ADD_MANAGED_PROFILE}
      *

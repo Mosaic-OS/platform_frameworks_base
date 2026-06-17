@@ -407,6 +407,13 @@
     <protected-broadcast android:name="com.android.settings.flashlight.action.FLASHLIGHT_CHANGED" />
     <protected-broadcast android:name="com.android.systemui.action.LAUNCH_SYSTEM_MEDIA_OUTPUT_DIALOG" />
     <protected-broadcast android:name="com.android.systemui.STARTED" />
+	
+	<!-- Network traffic monitor -->
+    <uses-permission android:name="android.permission.MAINLINE_NETWORK_STACK" />
+	
+	<!-- Data Switch tile -->
+    <uses-permission android:name="android.permission.WRITE_APN_SETTINGS" />
+
 
     <application
         android:name=".application.impl.SystemUIApplicationImpl"

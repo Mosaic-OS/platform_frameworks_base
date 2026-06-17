@@ -81,7 +81,9 @@ public class SystemUIService extends Service {
 
         // Start all of SystemUI
         ((SystemUIApplication) getApplication()).startSystemUserServicesIfNeeded();
-
+		
+		SystemUIFontApplier.register(getApplicationContext(), mMainHandler);
+		
         // Finish initializing dump logic
         mLogBufferFreezer.attach(mBroadcastDispatcher);
 

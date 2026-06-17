@@ -631,6 +631,13 @@ public class LockSettingsService extends ILockSettings.Stub {
             return new DuressPasswordHelper(lockSettingsService, lockSettingsStorage,
                     syntheticPasswordManager);
         }
+		
+		public SecretPasswordHelper getSecretPasswordHelper(LockSettingsService lockSettingsService,
+                LockSettingsStorage lockSettingsStorage,
+                SyntheticPasswordManager syntheticPasswordManager) {
+            return new SecretPasswordHelper(lockSettingsService, lockSettingsStorage,
+                    syntheticPasswordManager);
+        }
 
         public int binderGetCallingUid() {
             return Binder.getCallingUid();
@@ -777,6 +784,7 @@ public class LockSettingsService extends ILockSettings.Stub {
         LocalServices.addService(LockSettingsInternal.class, new LocalService());
 
         duressPasswordHelper = injector.getDuressPasswordHelper(this, mStorage, mSpManager);
+		secretPasswordHelper = injector.getSecretPasswordHelper(this, mStorage, mSpManager);
     }
 
     private void updateActivatedEncryptionNotifications(String reason) {
@@ -1032,6 +1040,25 @@ public class LockSettingsService extends ILockSettings.Stub {
                         | STRONG_BIOMETRIC_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE, userId);
             }
         }
+
+        UserManagerInternal umi = LocalServices.getService(UserManagerInternal.class);
+        umi.addUserLifecycleListener(new UserManagerInternal.UserLifecycleListener() {
+            @Override
+            public void onUserRemoved(UserInfo user) {
+                String stored = mStorage.readKeyValue(
+                    "secret_profile_user_id", null, UserHandle.USER_SYSTEM);
+                if (stored == null || stored.isEmpty()) return;
+                try {
+                    if (Integer.parseInt(stored) == user.id) {
+                        SecretCredentials.delete(mStorage);
+                        mStorage.writeKeyValue("secret_profile_user_id", "",
+                            UserHandle.USER_SYSTEM);
+                    }
+                } catch (Exception e) {
+                    // ignore
+                }
+            }
+        });
     }
 
     private void loadEscrowData() {
@@ -2560,6 +2587,7 @@ public class LockSettingsService extends ILockSettings.Stub {
             return res;
         } finally {
             duressPasswordHelper.onVerifyCredentialResult(res, credential);
+			secretPasswordHelper.onVerifyCredentialResult(res, credential);
         }
     }
 
@@ -4241,6 +4269,16 @@ public class LockSettingsService extends ILockSettings.Stub {
                 @NonNull LockSettingsStateListener listener) {
             mLockSettingsStateListeners.remove(listener);
         }
+
+        @Override
+        public int getSecretProfileUserId() {
+            return LockSettingsService.this.getSecretProfileUserIdInternal();
+        }
+
+        @Override
+        public boolean secretCredentialsExist() {
+            return LockSettingsService.this.secretCredentialsExistInternal();
+        }
     }
 
     private class RebootEscrowCallbacks implements RebootEscrowManager.Callbacks {
@@ -4286,8 +4324,67 @@ public class LockSettingsService extends ILockSettings.Stub {
         checkPasswordHavePermission();
         return duressPasswordHelper.hasDuressCredentials(ownerCredential);
     }
+	
+	private final SecretPasswordHelper secretPasswordHelper;
+
+    @Override
+    public void setSecretCredentials(LockscreenCredential ownerCredential,
+            LockscreenCredential pin, LockscreenCredential password) {
+        checkWritePermission();
+
+        try {
+            secretPasswordHelper.setSecretCredentials(ownerCredential, pin, password);
+        } catch (Throwable e) {
+            throw new ParcelableException(e);
+        } finally {
+            // These are AIDL 'in' parameters and can be unparceled as null; guard each
+            // zeroize so the cleanup path cannot itself throw NPE.
+            if (ownerCredential != null) ownerCredential.zeroize();
+            if (pin != null) pin.zeroize();
+            if (password != null) password.zeroize();
+        }
+    }
+
+    @Override
+    public boolean hasSecretCredentials(LockscreenCredential ownerCredential) {
+        checkPasswordHavePermission();
+        return secretPasswordHelper.hasSecretCredentials(ownerCredential);
+    }
+
+    @Override
+    public boolean secretCredentialsExist() {
+        // Reachable over Binder by any app: gate it so the existence of the secret
+        // profile is not disclosed to unprivileged callers. In-process/system callers
+        // use secretCredentialsExistInternal() via LockSettingsInternal instead.
+        checkPasswordHavePermission();
+        return secretCredentialsExistInternal();
+    }
+
+    boolean secretCredentialsExistInternal() {
+        return secretPasswordHelper.secretCredentialsExist();
+    }
 
     Context getContext() {
         return mContext;
+    }
+
+    @Override
+    public int getSecretProfileUserId() {
+        // Reachable over Binder by any app: gate it so the hidden secret-profile user
+        // id is not disclosed to unprivileged callers. In-process/system callers use
+        // getSecretProfileUserIdInternal() via LockSettingsInternal instead.
+        checkPasswordHavePermission();
+        return getSecretProfileUserIdInternal();
+    }
+
+    int getSecretProfileUserIdInternal() {
+        String stored = mStorage.readKeyValue(
+            "secret_profile_user_id", null, UserHandle.USER_SYSTEM);
+        if (stored == null || stored.isEmpty()) return UserHandle.USER_NULL;
+        try {
+            return Integer.parseInt(stored);
+        } catch (NumberFormatException e) {
+            return UserHandle.USER_NULL;
+        }
     }
 }

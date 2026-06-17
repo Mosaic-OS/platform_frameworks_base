@@ -858,6 +858,10 @@
 
     <!-- Added in 25Q4 -->
     <protected-broadcast android:name="android.intent.action.STOP_VOICE_COMMAND" />
+    
+    <!-- Used for long press power torch feature - automatic turn off on timeout -->
+    <protected-broadcast android:name="com.android.server.policy.PhoneWindowManager.ACTION_TORCH_OFF" />
+
 
     <!-- Added in 26Q2 -->
     <protected-broadcast android:name="android.telephony.action.STK_SETUP_EVENT_LIST" />
@@ -9558,7 +9562,7 @@
     <application android:process="system"
                  android:persistent="true"
                  android:hasCode="false"
-                 android:label="GrapheneOS"
+                 android:label="MosaicOS"
                  android:allowClearUserData="false"
                  android:backupAgent="com.android.server.backup.SystemBackupAgent"
                  android:killAfterRestore="false"

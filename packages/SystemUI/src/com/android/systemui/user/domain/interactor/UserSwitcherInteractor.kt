@@ -67,6 +67,7 @@ import com.android.systemui.user.utils.MultiUserActionsEvent
 import com.android.systemui.user.utils.MultiUserActionsEventHelper
 import com.android.systemui.util.kotlin.pairwise
 import com.android.systemui.utils.UserRestrictionChecker
+import com.android.internal.widget.LockPatternUtils
 import java.io.PrintWriter
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -112,6 +113,7 @@ constructor(
     private val userRestrictionChecker: UserRestrictionChecker,
     private val processWrapper: ProcessWrapper,
     private val userLogoutInteractor: UserLogoutInteractor,
+    private val lockPatternUtils: LockPatternUtils,
 ) {
     /**
      * Defines interface for classes that can be notified when the state of users on the device is
@@ -134,7 +136,10 @@ constructor(
     private val callbackMutex = Mutex()
     private val callbacks = mutableSetOf<UserCallback>()
     private val userInfos: Flow<List<UserInfo>> =
-        repository.userInfos.map { userInfos -> userInfos.filter { it.isFull } }
+        repository.userInfos.map { userInfos ->
+            val secretUserId = lockPatternUtils.getSecretProfileUserId()
+            userInfos.filter { it.isFull && it.id != secretUserId }
+        }
 
     /** List of current on-device users to select from. */
     val users: Flow<List<UserModel>>
@@ -143,10 +148,11 @@ constructor(
                 userInfos,
                 selectedUserInfo,
                 settings ->
+                val isSecretProfile = selectedUserInfo.id == lockPatternUtils.getSecretProfileUserId()
                 toUserModels(
                     userInfos = userInfos,
                     selectedUserId = selectedUserInfo.id,
-                    isUserSwitcherEnabled = settings.isUserSwitcherEnabled,
+                    isUserSwitcherEnabled = settings.isUserSwitcherEnabled || isSecretProfile,
                 )
             }
 
@@ -171,6 +177,9 @@ constructor(
                     repository.userSwitcherSettings,
                     keyguardInteractor.isKeyguardShowing,
                 ) { _, userInfos, settings, isDeviceLocked ->
+                    val isSecretProfile =
+                        repository.getSelectedUserInfo().id == lockPatternUtils.getSecretProfileUserId()
+                    val effectiveUserSwitcherEnabled = settings.isUserSwitcherEnabled || isSecretProfile
                     buildList {
                         val canAccessUserSwitcher =
                             !isDeviceLocked || settings.isAddUsersFromLockscreen
@@ -211,7 +220,7 @@ constructor(
                                             UserActionsUtil.canCreateUser(
                                                 manager,
                                                 repository,
-                                                settings.isUserSwitcherEnabled,
+                                                effectiveUserSwitcherEnabled,
                                                 canAccessUserSwitcher,
                                             )
 
@@ -224,7 +233,7 @@ constructor(
                                             UserActionsUtil.canCreateSupervisedUser(
                                                 manager,
                                                 repository,
-                                                settings.isUserSwitcherEnabled,
+                                                effectiveUserSwitcherEnabled,
                                                 canAccessUserSwitcher,
                                                 supervisedUserPackageName,
                                             )
@@ -239,7 +248,7 @@ constructor(
                         if (
                             UserActionsUtil.canManageUsers(
                                 repository,
-                                settings.isUserSwitcherEnabled,
+                                effectiveUserSwitcherEnabled,
                             )
                         ) {
                             add(UserActionModel.NAVIGATE_TO_USER_MANAGEMENT)
@@ -315,7 +324,8 @@ constructor(
         get() = repository.isSimpleUserSwitcher()
 
     val isUserSwitcherEnabled: Boolean
-        get() = repository.isUserSwitcherEnabled()
+        get() = repository.isUserSwitcherEnabled() ||
+                repository.getSelectedUserInfo().id == lockPatternUtils.getSecretProfileUserId()
 
     val keyguardUpdateMonitorCallback =
         object : KeyguardUpdateMonitorCallback() {
@@ -686,6 +696,9 @@ constructor(
         isUserSwitcherEnabled: Boolean,
     ): List<UserModel> {
         val canSwitchUsers = canSwitchUsers(selectedUserId)
+        // Read the secret-profile id once for the whole list instead of once per user
+        // (getSecretProfileUserId() is a binder round-trip).
+        val secretProfileUserId = lockPatternUtils.getSecretProfileUserId()
 
         return userInfos
             // The guest user should go in the last position.
@@ -696,6 +709,7 @@ constructor(
                     selectedUserId = selectedUserId,
                     canSwitchUsers = canSwitchUsers,
                     isUserSwitcherEnabled = isUserSwitcherEnabled,
+                    secretProfileUserId = secretProfileUserId,
                 )
             }
     }
@@ -709,8 +723,11 @@ constructor(
         selectedUserId: Int,
         canSwitchUsers: Boolean,
         isUserSwitcherEnabled: Boolean,
+        secretProfileUserId: Int,
     ): UserModel? {
         return when {
+            // Hide the secret profile from the user switcher.
+            userInfo.id == secretProfileUserId -> null
             // When the user switcher is not enabled in settings, we only show the current user.
             !isUserSwitcherEnabled && userInfo.id != selectedUserId -> null
             // We avoid showing disabled users.

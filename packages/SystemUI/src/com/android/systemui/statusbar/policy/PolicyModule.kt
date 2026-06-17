@@ -22,9 +22,6 @@ import android.os.UserManager.DISALLOW_CONFIG_LOCATION
 import android.os.UserManager.DISALLOW_MICROPHONE_TOGGLE
 import android.os.UserManager.DISALLOW_SHARE_LOCATION
 import com.android.systemui.Flags
-import com.android.systemui.flashlight.FlashlightModule
-import com.android.systemui.flashlight.flags.FlashlightStrength
-import com.android.systemui.flashlight.shared.model.FlashlightModel
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.shared.model.TileCategory
@@ -32,8 +29,8 @@ import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AlarmTile
 import com.android.systemui.qs.tiles.BatteryShareTile
 import com.android.systemui.qs.tiles.CameraToggleTile
-import com.android.systemui.qs.tiles.FlashlightTile
-import com.android.systemui.qs.tiles.FlashlightTileWithLevel
+import com.android.systemui.qs.tiles.ClipboardShareTile
+import com.android.systemui.qs.tiles.FlashlightStrengthTile
 import com.android.systemui.qs.tiles.LocationTile
 import com.android.systemui.qs.tiles.MicrophoneToggleTile
 import com.android.systemui.qs.tiles.ModesDndTile
@@ -51,9 +48,6 @@ import com.android.systemui.qs.tiles.impl.alarm.domain.interactor.AlarmTileDataI
 import com.android.systemui.qs.tiles.impl.alarm.domain.interactor.AlarmTileUserActionInteractor
 import com.android.systemui.qs.tiles.impl.alarm.domain.model.AlarmTileModel
 import com.android.systemui.qs.tiles.impl.alarm.ui.mapper.AlarmTileMapper
-import com.android.systemui.qs.tiles.impl.flashlight.domain.interactor.FlashlightTileDataInteractor
-import com.android.systemui.qs.tiles.impl.flashlight.domain.interactor.FlashlightTileUserActionInteractor
-import com.android.systemui.qs.tiles.impl.flashlight.ui.mapper.FlashlightTileMapper
 import com.android.systemui.qs.tiles.impl.location.domain.interactor.LocationTileDataInteractor
 import com.android.systemui.qs.tiles.impl.location.domain.interactor.LocationTileUserActionInteractor
 import com.android.systemui.qs.tiles.impl.location.domain.model.LocationTileModel
@@ -87,7 +81,7 @@ import dagger.multibindings.IntoMap
 import dagger.multibindings.StringKey
 import javax.inject.Provider
 
-@Module(includes = [FlashlightModule::class])
+@Module
 interface PolicyModule {
 
     /** Inject WorkModeTile into tileMap in QSModule */
@@ -95,13 +89,6 @@ interface PolicyModule {
     @IntoMap
     @StringKey(WorkModeTile.TILE_SPEC)
     fun bindWorkModeTile(workModeTile: WorkModeTile): QSTileImpl<*>
-
-    @Binds
-    @IntoMap
-    @StringKey(FLASHLIGHT_TILE_SPEC)
-    fun provideFlashlightAvailabilityInteractor(
-        impl: FlashlightTileDataInteractor
-    ): QSTileAvailabilityInteractor
 
     @Binds
     @IntoMap
@@ -130,6 +117,12 @@ interface PolicyModule {
     fun provideWorkModeAvailabilityInteractor(
         impl: WorkModeTileDataInteractor
     ): QSTileAvailabilityInteractor
+	
+	/** Inject ClipboardShareTile into tileMap in QSModule */
+	@Binds
+	@IntoMap
+	@StringKey(ClipboardShareTile.TILE_SPEC)
+	fun bindClipboardShareTile(tile: ClipboardShareTile): QSTileImpl<*>
 
     companion object {
         const val FLASHLIGHT_TILE_SPEC = "flashlight"
@@ -153,39 +146,6 @@ interface PolicyModule {
         @IntoMap
         @StringKey(MODES_DND_TILE_SPEC)
         fun bindDndModeTile(tile: ModesDndTile): QSTileImpl<*> = tile
-
-        /** Inject flashlight config */
-        @Provides
-        @IntoMap
-        @StringKey(FLASHLIGHT_TILE_SPEC)
-        fun provideFlashlightTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
-            QSTileConfig(
-                tileSpec = TileSpec.create(FLASHLIGHT_TILE_SPEC),
-                uiConfig =
-                    QSTileUIConfig.Resource(
-                        iconRes = R.drawable.qs_flashlight_icon_off,
-                        labelRes = R.string.quick_settings_flashlight_label,
-                    ),
-                instanceId = uiEventLogger.getNewInstanceId(),
-                category = TileCategory.UTILITIES,
-            )
-
-        /** Inject FlashlightTile into tileViewModelMap in QSModule */
-        @Provides
-        @IntoMap
-        @StringKey(FLASHLIGHT_TILE_SPEC)
-        fun provideFlashlightTileViewModel(
-            factory: QSTileViewModelFactory.Static<FlashlightModel>,
-            mapper: FlashlightTileMapper,
-            stateInteractor: FlashlightTileDataInteractor,
-            userActionInteractor: FlashlightTileUserActionInteractor,
-        ): QSTileViewModel =
-            factory.create(
-                TileSpec.create(FLASHLIGHT_TILE_SPEC),
-                userActionInteractor,
-                stateInteractor,
-                mapper,
-            )
 
         /** Inject location config */
         @Provides
@@ -477,18 +437,31 @@ interface PolicyModule {
                 mapper,
             )
 
-        /**
+		
+		/**
          * Inject FlashlightTile or FlashlightTileWithLevel into tileMap in QSModule based on flag
          */
         @Provides
-        @IntoMap
-        @StringKey(FlashlightTile.TILE_SPEC)
-        fun provideBinaryOrLevelOldFlashlightTile(
-            binaryTile: Provider<FlashlightTile>,
-            levelTile: Provider<FlashlightTileWithLevel>,
-        ): QSTileImpl<*> {
-            return if (FlashlightStrength.isEnabled) levelTile.get() else binaryTile.get()
-        }
+		@IntoMap
+		@StringKey(FLASHLIGHT_TILE_SPEC)
+		fun provideFlashlightTile(
+			strengthTile: Provider<FlashlightStrengthTile>,
+		): QSTileImpl<*> = strengthTile.get()
+		
+		/** Inject flashlight config */
+		@Provides
+		@IntoMap
+		@StringKey(FLASHLIGHT_TILE_SPEC)
+		fun provideFlashlightTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+			QSTileConfig(
+				tileSpec = TileSpec.create(FLASHLIGHT_TILE_SPEC),
+				uiConfig = QSTileUIConfig.Resource(
+					iconRes = R.drawable.qs_flashlight_icon_off,
+					labelRes = R.string.quick_settings_flashlight_label,
+				),
+				instanceId = uiEventLogger.getNewInstanceId(),
+				category = TileCategory.UTILITIES,
+			)
 
         @Provides
         @IntoMap
@@ -504,6 +477,22 @@ interface PolicyModule {
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.UTILITIES,
             )
+		
+		/** Inject ClipboardShare tile config */
+		@Provides
+		@IntoMap
+		@StringKey(ClipboardShareTile.TILE_SPEC)
+		fun provideClipboardShareTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+			QSTileConfig(
+				tileSpec = TileSpec.create(ClipboardShareTile.TILE_SPEC),
+				uiConfig =
+					QSTileUIConfig.Resource(
+						iconRes = R.drawable.ic_content_paste,
+						labelRes = R.string.clipboard_share_title,
+					),
+				instanceId = uiEventLogger.getNewInstanceId(),
+				category = TileCategory.PRIVACY,
+			)
     }
 
     /** Inject LocationTile into tileMap in QSModule */

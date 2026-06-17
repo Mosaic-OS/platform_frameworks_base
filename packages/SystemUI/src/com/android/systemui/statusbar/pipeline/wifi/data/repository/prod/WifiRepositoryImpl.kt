@@ -489,6 +489,15 @@ constructor(
             }
     }
 
+    override fun disableWifi() {
+        // Symmetric with the other toggle methods: cancel any pending optimistic Scanning/Pausing
+        // timeout job and reset the toggle state, so the tile is not stranded in a stale
+        // Scanning/Pausing state when wifi is turned off mid-toggle.
+        cancelOptimisticToggleTimeoutJobs()
+        _wifiToggleState.value = WifiToggleState.Normal
+        wifiManager.setWifiEnabled(false)
+    }
+
     override fun enableWifi() {
         wifiManager.setWifiEnabled(true)
         scanForWifi()

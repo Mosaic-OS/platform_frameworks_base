@@ -27,6 +27,7 @@ import com.android.systemui.qs.tiles.AirplaneModeTile
 import com.android.systemui.qs.tiles.BluetoothTile
 import com.android.systemui.qs.tiles.CastTile
 import com.android.systemui.qs.tiles.DataSaverTile
+import com.android.systemui.qs.tiles.DataSwitchTile
 import com.android.systemui.qs.tiles.HotspotTile
 import com.android.systemui.qs.tiles.InternetTileNewImpl
 import com.android.systemui.qs.tiles.MobileDataTile
@@ -151,6 +152,12 @@ interface ConnectivityModule {
     fun provideMobileDataAvailabilityInteractor(
         impl: MobileDataTileDataInteractor
     ): QSTileAvailabilityInteractor
+	
+	/** Inject DataSwitchTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(DataSwitchTile.TILE_SPEC)
+    fun bindDataSwitchTile(dataSwitchTile: DataSwitchTile): QSTileImpl<*>
 
     companion object {
 
@@ -276,9 +283,7 @@ interface ConnectivityModule {
                 uiConfig =
                     QSTileUIConfig.Resource(
                         iconRes = WifiIcons.WIFI_FULL_ICONS[4],
-                        // Wifi tile will still show internet for now until we migrate to a
-                        // Wifi-only tile.
-                        labelRes = R.string.quick_settings_internet_label,
+                        labelRes = R.string.quick_settings_wifi_label,
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,
@@ -387,6 +392,21 @@ interface ConnectivityModule {
                     QSTileUIConfig.Resource(
                         iconRes = R.drawable.qs_bluetooth_icon_off,
                         labelRes = R.string.quick_settings_bluetooth_label,
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
+            )
+		
+		@Provides
+        @IntoMap
+        @StringKey(DataSwitchTile.TILE_SPEC)
+        fun provideDataSwitchTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(DataSwitchTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_qs_data_switch_1,
+                        labelRes = R.string.qs_data_switch_label,
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.CONNECTIVITY,

@@ -6152,6 +6152,20 @@ public final class Settings {
         @Readable
         public static final String ACCELEROMETER_ROTATION = "accelerometer_rotation";
 
+		/**
+         * Control the type of rotation which can be performed using the accelerometer
+         * if ACCELEROMETER_ROTATION is enabled.
+         * Value is a bitwise combination of
+         * 1 = 0 degrees (portrait)
+         * 2 = 90 degrees (left)
+         * 4 = 180 degrees (inverted portrait)
+         * 8 = 270 degrees (right)
+         * Setting to 0 is effectively orientation lock
+         * @hide
+         */
+        public static final String ACCELEROMETER_ROTATION_ANGLES = "accelerometer_rotation_angles";
+
+
         /**
          * Default screen rotation when no other policy applies.
          * When {@link #ACCELEROMETER_ROTATION} is zero and no on-screen Activity expresses a
@@ -7351,6 +7365,94 @@ public final class Settings {
         /** @hide */
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String DISALLOW_DELAYED_LOCKING_ON_USER_STOP = "disallow_delayed_locking_on_user_stop";
+        
+        /**
+         * Whether to use black theme for dark mode
+         * @hide
+         */
+        public static final String THEME_AMOLED_BLACK = "theme_amoled_black";
+        
+        /** 
+         * Quick torch gesture
+         * @hide
+         */
+        public static final String TORCH_LONG_PRESS_POWER_GESTURE = "torch_long_press_power_gesture";
+        
+        /**
+        * Quick torch timeout
+        * @hide
+        */
+        public static final String TORCH_LONG_PRESS_POWER_TIMEOUT = "torch_long_press_power_timeout";
+        
+        /**
+        * Quick pulldown
+        * @hide
+        */
+        public static final String STATUS_BAR_QUICK_QS_PULLDOWN = "status_bar_quick_qs_pulldown";
+		
+		/**
+         * Network traffic settings 
+        */
+        
+        /** @hide */
+        public static final String NETWORK_TRAFFIC_MODE = "network_traffic_mode";
+        
+        /** @hide */
+        public static final String NETWORK_TRAFFIC_POSITION = "network_traffic_position";
+        
+        /** @hide */
+        public static final String NETWORK_TRAFFIC_AUTOHIDE = "network_traffic_autohide";
+        
+        /** @hide */
+        public static final String NETWORK_TRAFFIC_UNITS = "network_traffic_units";
+        
+        /** @hide */
+        public static final String NETWORK_TRAFFIC_SHOW_UNITS = "network_traffic_show_units";
+		
+		/**
+         * Custom blur & transparency 
+        */
+        
+        /** @hide */
+        public static final String BACKGROUND_BLUR_RADIUS = "background_blur_radius";
+
+        /** @hide */
+        public static final String BACKGROUND_TRANSPARENCY = "background_transparency";
+
+        /** @hide */
+        public static final String NOTIFICATION_TRANSPARENCY = "notification_transparency";
+
+        /**
+         * Whether to use accent color for quick settings background
+        */
+
+        /** @hide */
+        public static final String BACKGROUND_ACCENT = "background_accent";
+
+        /**
+         * Whether to use accent color for notification panel
+        */
+
+        /** @hide */
+        public static final String NOTIFICATION_ACCENT = "notification_accent";
+		
+		/**
+         * Show navigation bar pill
+         * @hide
+         */
+        public static final String SHOW_NAVIGATION_PILL = "show_navigation_pill";
+
+        /**
+         * Pill length mode.
+         * Supported modes: 0 for short length, 1 for normal and 2 for long.
+         * @hide
+         */
+        public static final String PILL_LENGTH_MODE = "pill_length_mode";
+		
+		/**
+         * @hide
+         */
+        public static final String PILL_HEIGHT_MODE = "pill_height_mode";
 
         // ExtSettings END
 

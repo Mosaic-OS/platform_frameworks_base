@@ -2298,5 +2298,8 @@
     <dimen name="tile_details_vertical_padding">8dp</dimen>
     <dimen name="tile_details_entry_start_margin">16dp</dimen>
     <!-- Tile Details end -->
-
+	
+	<!-- Network Traffic -->
+    <dimen name="net_traffic_single_text_size">14sp</dimen>
+    <dimen name="net_traffic_multi_text_size">8sp</dimen>
 </resources>

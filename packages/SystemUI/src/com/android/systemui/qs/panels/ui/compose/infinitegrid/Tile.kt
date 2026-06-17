@@ -108,6 +108,32 @@ import com.android.systemui.qs.ui.composable.QuickSettingsShade
 import com.android.systemui.qs.ui.compose.borderOnFocus
 import com.android.systemui.res.R
 import kotlinx.coroutines.CoroutineScope
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.input.pointer.pointerInput
+import android.provider.Settings
+import android.os.UserHandle
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size as ComposeSize
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.input.pointer.util.VelocityTracker
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
+import kotlinx.coroutines.delay
+import kotlin.coroutines.coroutineContext
+import kotlin.math.abs
+
+
 
 @Composable
 fun TileLazyGrid(
@@ -302,6 +328,7 @@ fun ContentScope.Tile(
                 accessibilityUiState = uiState.accessibilityUiState,
                 iconOnly = iconOnly,
                 isDualTarget = isDualTarget,
+								tile = tile,
                 modifier = contentRevealModifier,
             ) {
                 val iconProvider: Context.() -> Icon = { getTileIcon(icon = icon) }
@@ -371,22 +398,106 @@ fun TileContainer(
     accessibilityUiState: AccessibilityUiState,
     iconOnly: Boolean,
     isDualTarget: Boolean,
+	tile: TileViewModel? = null,
     interactionSource: MutableInteractionSource?,
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit,
 ) {
+	val context = LocalContext.current
+    val isFlashlight = tile?.spec?.spec == "flashlight"
+    
+    val tileState by produceState(tile?.currentState, tile) {
+        tile?.state?.collect { value = it }
+    }
+    
+    val isActive = tileState?.state == STATE_ACTIVE
+
+    var currentPercent by remember { mutableFloatStateOf(0.5f) }
+    
+    if (isFlashlight && isActive) {
+        LaunchedEffect(Unit) {
+            currentPercent = Settings.System.getFloatForUser(
+                context.contentResolver,
+                "flashlight_brightness",
+                0.5f,
+                UserHandle.USER_CURRENT
+            )
+            
+            delay(50)
+            while (true) {
+                val newPercent = Settings.System.getFloatForUser(
+                    context.contentResolver,
+                    "flashlight_brightness",
+                    0.5f,
+                    UserHandle.USER_CURRENT
+                )
+                if (abs(newPercent - currentPercent) > 0.001f) {
+                    currentPercent = newPercent
+                }
+                delay(50)
+            }
+        }
+    }
+    
+    val warningColor = remember { Color(0xFFFF4A3D) }
+    val normalBackgroundAlpha = 0.25f
+    
+    val useFlashlightSlider = isFlashlight && !iconOnly && isActive
+
     Box(
         modifier =
             modifier
                 .height(TileHeight)
                 .fillMaxWidth()
-                .tileCombinedClickable(
-                    onClick = onClick ?: {},
-                    onLongClick = onLongClick,
-                    accessibilityUiState = accessibilityUiState,
-                    iconOnly = iconOnly,
-                    isDualTarget = isDualTarget,
-                    interactionSource = interactionSource,
+                .thenIf(isFlashlight && !iconOnly && isActive && currentPercent >= 0.90f) {
+                    Modifier.background(warningColor)
+                }
+                .thenIf(isFlashlight && !iconOnly && isActive) {
+                    Modifier.drawBehind {
+                        val width = size.width * currentPercent
+                        val cornerRadius = 24.dp.toPx()
+                        val progressColor = Color.White.copy(alpha = normalBackgroundAlpha)
+                        
+                        drawRoundRect(
+                            color = progressColor,
+                            topLeft = Offset.Zero,
+                            size = ComposeSize(width, size.height),
+                            cornerRadius = CornerRadius(cornerRadius, cornerRadius)
+                        )
+                    }
+                }
+                .then(
+                    if (useFlashlightSlider) {
+                        Modifier.flashlightSliderWithClick(
+                            onClick = { onClick?.invoke() },
+                            onLongClick = onLongClick,
+                            onPercentChange = { percent ->
+                                currentPercent = percent
+                                
+                                try {
+                                    val tileField = tile?.javaClass?.getDeclaredField("tile")
+                                    tileField?.isAccessible = true
+                                    val qsTile = tileField?.get(tile)
+                                    if (qsTile is com.android.systemui.qs.tiles.FlashlightStrengthTile) {
+                                        // Route through a public API that clamps, persists and
+                                        // drives the torch on the tile's background thread.
+                                        qsTile.setBrightnessPercent(percent)
+                                    }
+                                } catch (e: Exception) {
+                                    android.util.Log.e("TileSlider", "Failed to set flashlight brightness: ${e.message}", e)
+                                }
+                            }
+                        )
+                    } else {
+                        Modifier.tileCombinedClickable(
+                            onClick = onClick ?: {},
+                            onLongClick = onLongClick,
+                            accessibilityUiState = accessibilityUiState,
+                            iconOnly = iconOnly,
+                            interactionSource = interactionSource,
+                            isDualTarget = isDualTarget,
+                        )
+                    }
                 )
                 .tileTestTag(iconOnly),
         content = content,
@@ -622,4 +733,69 @@ private object TileDefaults {
 private fun resources(): Resources {
     LocalConfiguration.current
     return LocalResources.current
+}
+
+fun Modifier.flashlightSliderWithClick(
+    onClick: () -> Unit,
+    onLongClick: (() -> Unit)?,
+    onPercentChange: (Float) -> Unit,
+): Modifier = this.pointerInput(Unit) {
+    val scope = CoroutineScope(coroutineContext)
+    
+    awaitEachGesture {
+        val down = awaitFirstDown(requireUnconsumed = false)
+        val downTime = System.currentTimeMillis()
+        val startX = down.position.x
+        val initPct = startX / size.width
+        var moved = false
+        var drag: PointerInputChange? = down
+        
+        var updateJob: kotlinx.coroutines.Job? = null
+        
+        do {
+            val event = awaitPointerEvent()
+            drag = event.changes.firstOrNull()
+            
+            if (drag != null && drag.pressed) {
+                val newX = drag.position.x
+                val newPct = (newX / size.width).coerceIn(0.01f, 1f)
+                val deltaPct = abs(newPct - initPct)
+                
+                if (deltaPct > 0.005f) {
+                    if (!moved) {
+                        moved = true
+                        updateJob?.cancel()
+                        
+                        updateJob = scope.launch {
+                            while (true) {
+                                withFrameNanos {
+                                    val currentX = drag?.position?.x ?: newX
+                                    val currentPct = (currentX / size.width).coerceIn(0.01f, 1f)
+                                    onPercentChange(currentPct)
+                                }
+                            }
+                        }
+                    }
+                    drag.consume()
+                }
+            }
+        } while (drag != null && drag.pressed)
+        
+        updateJob?.cancel()
+        
+        if (moved) {
+            val finalX = drag?.position?.x ?: startX
+            val finalPct = (finalX / size.width).coerceIn(0.01f, 1f)
+            onPercentChange(finalPct)
+        } else {
+            val upTime = System.currentTimeMillis()
+            val pressDuration = upTime - downTime
+            
+            if (pressDuration > 500 && onLongClick != null) {
+                onLongClick()
+            } else {
+                onClick()
+            }
+        }
+    }
 }

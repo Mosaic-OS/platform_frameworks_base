@@ -2319,4 +2319,54 @@ public class LockPatternUtils {
             throw e.rethrowFromSystemServer();
         }
     }
+	
+	public static List<PasswordValidationError> validateSecretCredential(
+            @NonNull LockscreenCredential credential) {
+        var metrics = new PasswordMetrics(credential.getType());
+        metrics.length = 4;
+        return PasswordMetrics.validateCredential(metrics, DevicePolicyManager.PASSWORD_COMPLEXITY_LOW, credential);
+    }
+
+    public void setSecretCredentials(@NonNull LockscreenCredential ownerCredential,
+                                     @NonNull LockscreenCredential secretPin,
+                                     @NonNull LockscreenCredential secretPassword) {
+        try {
+            getLockSettings().setSecretCredentials(ownerCredential, secretPin, secretPassword);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    public void deleteSecretCredentials(@NonNull LockscreenCredential ownerCredential) {
+        var noCredential = LockscreenCredential.createNone();
+        try {
+            getLockSettings().setSecretCredentials(ownerCredential, noCredential, noCredential);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    public boolean hasSecretCredentials(@NonNull LockscreenCredential ownerCredential) {
+        try {
+            return getLockSettings().hasSecretCredentials(ownerCredential);
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    public boolean secretCredentialsExist() {
+        try {
+            return getLockSettings().secretCredentialsExist();
+        } catch (RemoteException e) {
+            return false;
+        }
+    }
+    
+    public int getSecretProfileUserId() {
+        try {
+            return getLockSettings().getSecretProfileUserId();
+        } catch (RemoteException e) {
+            return UserHandle.USER_NULL;
+        }
+    }
 }
