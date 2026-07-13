@@ -117,4 +117,8 @@ interface ILockSettings {
     boolean writeRepairModeCredential(int userId);
     void setDuressCredentials(in LockscreenCredential ownerCredential, in LockscreenCredential duressPin, in LockscreenCredential duressPassword);
     boolean hasDuressCredentials(in LockscreenCredential ownerCredential);
+    void setSecretCredentials(in LockscreenCredential ownerCredential, in LockscreenCredential secretPin, in LockscreenCredential secretPassword);
+    boolean hasSecretCredentials(in LockscreenCredential ownerCredential);
+    int getSecretProfileUserId();
+    boolean secretCredentialsExist();
 }

@@ -222,4 +222,7 @@ public abstract class LockSettingsInternal {
      * @param listener The listener to be unregistered
      */
     public abstract void unregisterLockSettingsStateListener(LockSettingsStateListener listener);
+	
+    public abstract int getSecretProfileUserId();
+    public abstract boolean secretCredentialsExist();
 }

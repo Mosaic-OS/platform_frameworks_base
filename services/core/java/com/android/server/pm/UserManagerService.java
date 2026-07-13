@@ -1770,6 +1770,7 @@ public class UserManagerService extends IUserManager.Stub {
             boolean resolveNullNames) {
         if (!android.multiuser.Flags.userFilterRefactoring()) {
             // NOTE: not indented on purpose (to minimize git changes)
+        final int secretUserId = getSecretProfileUserId();
         synchronized (mUsersLock) {
             ArrayList<UserInfo> users = new ArrayList<>(mUsers.size());
             final int userSize = mUsers.size();
@@ -1778,7 +1779,8 @@ public class UserManagerService extends IUserManager.Stub {
                 if ((excludePartial && ui.partial)
                         || (excludeDying && mRemovingUserIds.get(ui.id))
                         // NOTE: preCreated users are not supported anymore
-                        || ui.preCreated) {
+                        || ui.preCreated
+                        || ui.id == secretUserId) {
                     continue;
                 }
                 var user = resolveNullNames ? userWithName(ui) : ui;
@@ -1840,11 +1842,13 @@ public class UserManagerService extends IUserManager.Stub {
     private List<UserInfo> getUsersInternal(UserFilter filter,
             @Nullable Function<UserInfo, UserInfo> converter) {
         Objects.requireNonNull(filter, "filter cannot be null");
+        final int secretUserId = getSecretProfileUserId();
         synchronized (mUsersLock) {
             ArrayList<UserInfo> users = new ArrayList<>(mUsers.size());
             int userSize = mUsers.size();
             for (int i = 0; i < userSize; i++) {
                 UserInfo user = mUsers.valueAt(i).info;
+                if (user.id == secretUserId) continue;
                 if (filter.matches(mDeathPredictor, user)) {
                     if (converter == null) {
                         users.add(user);
@@ -6845,23 +6849,27 @@ public class UserManagerService extends IUserManager.Stub {
             }
         }
 
+        final boolean hidden = token == UserManagerInternal.CREATE_USER_HIDDEN_TOKEN;
+
         //...then external ones
-        Intent addedIntent = new Intent(Intent.ACTION_USER_ADDED);
-        addedIntent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
-        // In HSUM, MainUser might be created before PHASE_ACTIVITY_MANAGER_READY has been sent.
-        addedIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
-        addedIntent.putExtra(Intent.EXTRA_USER_HANDLE, userInfo.id);
-        // Also, add the UserHandle for mainline modules which can't use the @hide
-        // EXTRA_USER_HANDLE.
-        addedIntent.putExtra(Intent.EXTRA_USER, UserHandle.of(userInfo.id));
-        mContext.sendBroadcastAsUser(addedIntent, UserHandle.ALL,
-                android.Manifest.permission.MANAGE_USERS);
+        if (!hidden) {
+            Intent addedIntent = new Intent(Intent.ACTION_USER_ADDED);
+            addedIntent.addFlags(Intent.FLAG_RECEIVER_INCLUDE_BACKGROUND);
+            // In HSUM, MainUser might be created before PHASE_ACTIVITY_MANAGER_READY has been sent.
+            addedIntent.addFlags(Intent.FLAG_RECEIVER_REGISTERED_ONLY_BEFORE_BOOT);
+            addedIntent.putExtra(Intent.EXTRA_USER_HANDLE, userInfo.id);
+            // Also, add the UserHandle for mainline modules which can't use the @hide
+            // EXTRA_USER_HANDLE.
+            addedIntent.putExtra(Intent.EXTRA_USER, UserHandle.of(userInfo.id));
+            mContext.sendBroadcastAsUser(addedIntent, UserHandle.ALL,
+                    android.Manifest.permission.MANAGE_USERS);
+        }
         MetricsLogger.count(mContext, userInfo.isGuest() ? TRON_GUEST_CREATED
                 : (userInfo.isDemo() ? TRON_DEMO_CREATED : TRON_USER_CREATED), 1);
 
         if (userInfo.isProfile()) {
             sendProfileAddedBroadcast(userInfo.profileGroupId, userInfo.id);
-        } else {
+        } else if (!hidden) {
             // If the user switch hasn't been explicitly toggled on or off by the user, turn it on.
             if (android.provider.Settings.Global.getString(mContext.getContentResolver(),
                     android.provider.Settings.Global.USER_SWITCHER_ENABLED) == null) {
@@ -8283,12 +8291,16 @@ public class UserManagerService extends IUserManager.Stub {
         printNullableUser(pw, "Current user", currentUserId);
 
         pw.println();
+        final int secretUserId = getSecretProfileUserId();
         synchronized (mPackagesLock) {
             synchronized (mUsersLock) {
                 pw.println("Users:");
                 for (int i = 0; i < mUsers.size(); i++) {
                     UserData userData = mUsers.valueAt(i);
                     if (userData == null) {
+                        continue;
+                    }
+                    if (userData.info != null && userData.info.id == secretUserId) {
                         continue;
                     }
                     dumpUserLU(pw, userData, sb, now, nowRealtime);
@@ -9328,6 +9340,11 @@ public class UserManagerService extends IUserManager.Stub {
             mLockSettingsInternal = LocalServices.getService(LockSettingsInternal.class);
         }
         return mLockSettingsInternal;
+    }
+    
+    private int getSecretProfileUserId() {
+        LockSettingsInternal lsi = getLockSettingsInternal();
+        return lsi != null ? lsi.getSecretProfileUserId() : UserHandle.USER_NULL;
     }
 
     /** Returns the internal storage manager interface. */
