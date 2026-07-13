@@ -184,6 +184,8 @@ public class GlobalSettingsValidators {
         VALIDATORS.put(Global.POWER_BUTTON_TRIPLE_PRESS, new InclusiveIntegerRangeValidator(0, 3));
         VALIDATORS.put(Global.POWER_BUTTON_LONG_PRESS, new InclusiveIntegerRangeValidator(0, 5));
         VALIDATORS.put(Global.POWER_BUTTON_LONG_PRESS_RESTORED, BOOLEAN_VALIDATOR);
+        VALIDATORS.put("systemui_font_package_request", ANY_STRING_VALIDATOR);
+        VALIDATORS.put("systemui_font_restart_request", ANY_STRING_VALIDATOR);
         VALIDATORS.put(
                 Global.POWER_BUTTON_VERY_LONG_PRESS, new InclusiveIntegerRangeValidator(0, 1));
         VALIDATORS.put(Global.KEY_CHORD_POWER_VOLUME_UP, new InclusiveIntegerRangeValidator(0, 2));

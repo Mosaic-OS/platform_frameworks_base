@@ -121,9 +121,12 @@ constructor(
         // In practice, 30 looks good enough and limits our memory usage
         const val NUM_CLOCK_FONT_ANIMATION_STEPS = 30
 
-        val FLEX_TYPEFACE: Typeface by lazy {
+        val FLEX_TYPEFACE: Typeface
             // TODO(b/364680873): Move constant to config_clockFontFamily when shipping
-            Typeface.create("google-sans-flex-clock", Typeface.NORMAL)
-        }
+            // Resolved on every access (not `by lazy`): Typeface.create() goes through the
+            // system font override hook, so newly created clocks pick up a changed system
+            // font without needing a process restart. The dynamic typeface cache keeps
+            // repeated lookups cheap.
+            get() = Typeface.create("google-sans-flex-clock", Typeface.NORMAL)
     }
 }
