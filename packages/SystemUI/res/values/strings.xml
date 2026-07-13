@@ -5071,4 +5071,11 @@
     <string name="qs_data_switch_changed_2">Switch data card to SIM 2.</string>
     <string name="qs_data_switch_text_1">SIM 1</string>
     <string name="qs_data_switch_text_2">SIM 2</string>
+	
+	<!-- Clipboard share QS tile -->
+    <string name="clipboard_share_title">Share clipboard</string>
+    <string name="clipboard_share_success">Clipboard sent</string>
+    <string name="clipboard_share_error">Failed to send</string>
+    <string name="clipboard_share_empty">Empty clipboard</string>
+    <string name="clipboard_share_no_users">No other user</string>
 </resources>
