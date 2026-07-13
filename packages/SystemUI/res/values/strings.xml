@@ -5063,4 +5063,12 @@
     <!-- Accessibility label for the thumbs down button on attribution dialog. [CHAR_LIMIT=NONE] -->
     <string name="ace_attribution_thumbs_down_button_accessibility_description">Thumbs down feedback button</string>
 
+	<!-- Data Switch Tile -->
+    <string name="qs_data_switch_label">Switch data card</string>
+    <string name="qs_data_switch_toast_0">Currently no SIM card is in use</string>
+    <string name="qs_data_switch_toast_1">Currently only one SIM card is in use</string>
+    <string name="qs_data_switch_changed_1">Switch data card to SIM 1.</string>
+    <string name="qs_data_switch_changed_2">Switch data card to SIM 2.</string>
+    <string name="qs_data_switch_text_1">SIM 1</string>
+    <string name="qs_data_switch_text_2">SIM 2</string>
 </resources>
