@@ -6313,7 +6313,7 @@ public final class Settings {
         @Readable
         public static final String ACCELEROMETER_ROTATION = "accelerometer_rotation";
 
-        /**
+	/**
          * Default screen rotation when no other policy applies.
          * When {@link #ACCELEROMETER_ROTATION} is zero and no on-screen Activity expresses a
          * preference, this rotation value will be used. Must be one of the
@@ -7522,7 +7522,12 @@ public final class Settings {
         /** @hide */
         @Protected(readWrite = KnownSystemPackage.SETTINGS)
         public static final String DISALLOW_DELAYED_LOCKING_ON_USER_STOP = "disallow_delayed_locking_on_user_stop";
-
+        
+        /**
+         * Whether to use black theme for dark mode
+         * @hide
+         */
+        public static final String THEME_AMOLED_BLACK = "theme_amoled_black";
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

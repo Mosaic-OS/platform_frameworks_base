@@ -67,6 +67,9 @@ public class ThemeOverlayApplier implements Dumpable {
     @VisibleForTesting
     static final String SYSUI_PACKAGE = "com.android.systemui";
 
+    static final String OVERLAY_BLACK_THEME =
+            "com.mosaicos.blacktheme";
+
     static final String OVERLAY_CATEGORY_DYNAMIC_COLOR =
             "android.theme.customization.dynamic_color";
     static final String OVERLAY_CATEGORY_ACCENT_COLOR =
@@ -201,11 +204,11 @@ public class ThemeOverlayApplier implements Dumpable {
             FabricatedOverlay[] pendingCreation,
             int currentUser,
             Set<UserHandle> managedProfiles,
+            boolean isBlackMode,
             Runnable onComplete
     ) {
 
         mBgExecutor.execute(() -> {
-
             // Disable all overlays that have not been specified in the user setting.
             final Set<String> overlayCategoriesToDisable = new HashSet<>(THEME_CATEGORIES);
             final Set<String> targetPackagesToQuery = overlayCategoriesToDisable.stream()
@@ -248,16 +251,80 @@ public class ThemeOverlayApplier implements Dumpable {
                 }
             }
 
+            addBlackThemeOverlays(transaction, currentUser, isBlackMode);
+
             try {
                 mOverlayManager.commit(transaction.build());
-                if (onComplete != null) {
-                    Log.d(TAG, "Executing onComplete runnable");
-                    mMainExecutor.execute(onComplete);
-                }
             } catch (SecurityException | IllegalStateException e) {
                 Log.e(TAG, "setEnabled failed", e);
             }
+
+            if (onComplete != null) {
+                Log.d(TAG, "Executing onComplete runnable");
+                mMainExecutor.execute(onComplete);
+            }
         });
+    }
+
+    /**
+     * Adds the AMOLED black-theme overlay enable/disable to {@code transaction}, scoped to
+     * {@code currentUser}.
+     */
+    private void addBlackThemeOverlays(OverlayManagerTransaction.Builder transaction,
+            int currentUser, boolean isBlackMode) {
+        try {
+            transaction.setEnabled(getOverlayID(OVERLAY_BLACK_THEME), isBlackMode, currentUser);
+        } catch (IllegalStateException e) {
+            Log.e(TAG, "Black theme overlay not found, skipping", e);
+        }
+        try {
+            // 'android:neutral' is a fabricated/runtime overlay that may not exist; a missing
+            // neutral overlay must not abort enabling the black overlay.
+            transaction.setEnabled(getOverlayID("android:neutral"), !isBlackMode, currentUser);
+        } catch (IllegalStateException e) {
+            Log.d(TAG, "android:neutral overlay not found, skipping");
+        }
+    }
+
+    /**
+     * Fast path that toggles only the AMOLED black-theme overlays for {@code currentUser} in a
+     * single commit, without the full disable-sweep / fabricated-overlay work of
+     * {@link #applyCurrentUserOverlays}. Used for a pure black-mode setting change, where the Monet
+     * palette is unchanged and its fabricated overlays are already registered.
+     */
+    public void applyBlackModeOnly(int currentUser, boolean isBlackMode, Runnable onComplete) {
+        mBgExecutor.execute(() -> {
+            OverlayManagerTransaction.Builder transaction = getTransactionBuilder();
+            addBlackThemeOverlays(transaction, currentUser, isBlackMode);
+            try {
+                mOverlayManager.commit(transaction.build());
+            } catch (SecurityException | IllegalStateException e) {
+                Log.e(TAG, "applyBlackModeOnly commit failed", e);
+            }
+            if (onComplete != null) {
+                Log.d(TAG, "Executing onComplete runnable");
+                mMainExecutor.execute(onComplete);
+            }
+        });
+    }
+
+    private OverlayIdentifier getOverlayID(String name) throws IllegalStateException {
+        if (name.contains(":")) {
+            final String[] value = name.split(":");
+            final String pkgName = value[0];
+            final String overlayName = value[1];
+            final List<OverlayInfo> infos =
+                    mOverlayManager.getOverlayInfosForTarget(pkgName, UserHandle.CURRENT);
+            for (OverlayInfo info : infos) {
+                if (overlayName.equals(info.getOverlayName()))
+                    return info.getOverlayIdentifier();
+            }
+            throw new IllegalStateException("No overlay found for " + name);
+        }
+        OverlayInfo overlayInfo = mOverlayManager.getOverlayInfo(name, UserHandle.CURRENT);
+        if (overlayInfo != null)
+            return overlayInfo.getOverlayIdentifier();
+        throw new IllegalStateException("No overlay found for " + name);
     }
 
     @VisibleForTesting
