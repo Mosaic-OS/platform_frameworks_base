@@ -85,9 +85,9 @@ class ClipboardShareTile @Inject constructor(
         }
 
         val um = mContext.getSystemService(UserManager::class.java)
-        val am = mContext.getSystemService(ActivityManager::class.java)
+        // Stopped profiles are eligible too
         val hasOtherUsers = ClipboardShareDialogDelegate
-            .getEligibleTargetUsers(um, am, currentUserId, secretUserId)
+            .getEligibleTargetUsers(um, currentUserId, secretUserId)
             .isNotEmpty()
 
         when {

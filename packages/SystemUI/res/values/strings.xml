@@ -5078,4 +5078,8 @@
     <string name="clipboard_share_error">Failed to send</string>
     <string name="clipboard_share_empty">Empty clipboard</string>
     <string name="clipboard_share_no_users">No other user</string>
+    <string name="clipboard_share_not_running">Not running</string>
+    <string name="clipboard_share_start_profile_message">To share the clipboard, the profile needs to be running.\n\nStart \"%1$s\" and keep it running to share? This overrides its background setting.</string>
+    <string name="clipboard_share_start_button">Start</string>
+    <string name="clipboard_share_starting">Starting profile…</string>
 </resources>
