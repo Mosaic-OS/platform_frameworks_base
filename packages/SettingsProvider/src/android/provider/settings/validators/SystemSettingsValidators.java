@@ -279,6 +279,13 @@ public class SystemSettingsValidators {
         VALIDATORS.put(System.PREFERRED_REGION, ANY_STRING_VALIDATOR);
         VALIDATORS.put(System.CV_ENABLED, new InclusiveIntegerRangeValidator(0, 1));
         VALIDATORS.put(System.CV_DYNAMIC_ENABLED, new InclusiveIntegerRangeValidator(0, 1));
+        VALIDATORS.put(System.NETWORK_TRAFFIC_STATE, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(System.NETWORK_TRAFFIC_TYPE, new InclusiveIntegerRangeValidator(0, 4));
+        VALIDATORS.put(System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD, ANY_INTEGER_VALIDATOR);
+        VALIDATORS.put(System.NETWORK_TRAFFIC_ARROW, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(System.NETWORK_TRAFFIC_FONT_SIZE, NON_NEGATIVE_INTEGER_VALIDATOR);
+        VALIDATORS.put(System.NETWORK_TRAFFIC_TEXT_ENABLED, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(System.NETWORK_TRAFFIC_VIEW_LOCATION, new InclusiveIntegerRangeValidator(0, 2));
         VALIDATORS.put(
                 System.CV_PREFERRED_INTENSITY,
                 new InclusiveFloatRangeValidator(

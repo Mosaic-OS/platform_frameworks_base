@@ -39,7 +39,10 @@ import android.widget.LinearLayout;
 import androidx.annotation.NonNull;
 
 import com.android.internal.policy.SystemBarUtils;
+import com.android.systemui.Dependency;
 import com.android.systemui.Gefingerpoken;
+import com.android.systemui.plugins.DarkIconDispatcher;
+import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.gesture.StatusBarLongPressGestureDetector;
 import com.android.systemui.statusbar.phone.userswitcher.StatusBarUserSwitcherContainer;
@@ -54,6 +57,8 @@ public class PhoneStatusBarView extends FrameLayout {
     private static final String TAG = "PhoneStatusBarView";
 
     private int mRotationOrientation = -1;
+    // Network traffic monitor (statusbar location); tinted via DarkIconDispatcher like the icons.
+    private DarkReceiver mNetworkTraffic;
     @Nullable
     private View mCutoutSpace;
     @Nullable
@@ -128,6 +133,10 @@ public class PhoneStatusBarView extends FrameLayout {
     @Override
     protected void onAttachedToWindow() {
         super.onAttachedToWindow();
+        mNetworkTraffic = (DarkReceiver) findViewById(R.id.networkTraffic);
+        if (mNetworkTraffic != null) {
+            Dependency.get(DarkIconDispatcher.class).addDarkReceiver(mNetworkTraffic);
+        }
         if (updateDisplayParameters()) {
             updateLayoutForCutout();
         }
@@ -143,6 +152,9 @@ public class PhoneStatusBarView extends FrameLayout {
     @Override
     protected void onDetachedFromWindow() {
         super.onDetachedFromWindow();
+        if (mNetworkTraffic != null) {
+            Dependency.get(DarkIconDispatcher.class).removeDarkReceiver(mNetworkTraffic);
+        }
         mDisplayCutout = null;
     }
 

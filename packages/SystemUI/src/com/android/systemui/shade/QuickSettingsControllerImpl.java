@@ -1104,9 +1104,10 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         float shadeExpandedFraction = mBarState == KEYGUARD
                 ? getLockscreenShadeDragProgress()
                 : mShadeExpandedFraction;
+        // Visibility first: the header's fraction setters drop writes while not visible.
+        mShadeHeaderController.setQsVisible(mVisible);
         mShadeHeaderController.setShadeExpandedFraction(shadeExpandedFraction);
         mShadeHeaderController.setQsExpandedFraction(qsExpansionFraction);
-        mShadeHeaderController.setQsVisible(mVisible);
 
         // Update the light bar
         mLightBarController.setQsExpanded(mFullyExpanded);

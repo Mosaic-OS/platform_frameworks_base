@@ -1,0 +1,593 @@
+/*
+ * Copyright (C) 2021 Yet Another AOSP Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.systemui.statusbar.policy;
+
+import android.annotation.IntDef;
+import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
+import android.content.res.Configuration;
+import android.database.ContentObserver;
+import android.graphics.Color;
+import android.graphics.PorterDuffColorFilter;
+import android.graphics.drawable.Drawable;
+import android.graphics.PorterDuff.Mode;
+import android.hardware.display.DisplayManager;
+import android.net.ConnectivityManager;
+import android.net.Network;
+import android.net.TrafficStats;
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.os.UserHandle;
+import android.os.Looper;
+import android.os.Message;
+import android.os.SystemClock;
+import android.provider.Settings;
+import android.util.AttributeSet;
+import android.util.DisplayMetrics;
+import android.util.TypedValue;
+import android.view.Display;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.TextView;
+
+import com.android.systemui.res.R;
+
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.text.DecimalFormat;
+
+public class NetworkTraffic extends TextView {
+
+    private static final int MSG_PERIODIC = 0;
+    private static final int MSG_UPDATE = 1;
+    private static final int INTERVAL = 1500; //ms
+    private static final int BOTH = 0;
+    private static final int UP = 1;
+    private static final int DOWN = 2;
+    private static final int COMBINED = 3;
+    private static final int DYNAMIC = 4;
+    private static final int KB = 1024;
+    private static final int MB = KB * KB;
+    private static final int GB = MB * KB;
+    private static final String SYMBOL = "B/s";
+    private static final String THREAD_NAME = "NetworkTraffic";
+    static final int LOCATION_STATUSBAR = 0;
+    static final int LOCATION_QS_HEADER = 1;
+    static final int LOCATION_BOTH = 2;
+
+    // Per-instance: DecimalFormat is not thread-safe and each instance has its own thread.
+    private final DecimalFormat decimalFormat = new DecimalFormat("##0.#");
+    {
+        decimalFormat.setMaximumIntegerDigits(3);
+        decimalFormat.setMaximumFractionDigits(1);
+    }
+
+    @Retention(RetentionPolicy.SOURCE)
+    @IntDef({
+        LOCATION_STATUSBAR,
+        LOCATION_QS_HEADER,
+        LOCATION_BOTH
+    })
+    public @interface LocationInt {}
+
+    private DisplayMetrics mDisplayMetrics;
+    private long mLastUpdateTime;
+    private int mTrafficType;
+    private int mAutoHideThreshold;
+    private int mFontSize;
+    private int mCurrentNightMode = -1;
+    private boolean mTextEnabled;
+    private boolean mShowArrow;
+    private boolean mAttached;
+    private boolean mIsConnected;
+    // Volatile: written on the main thread, read on the traffic thread.
+    private volatile boolean mScreenOn = true;
+    private boolean iBytes;
+    private boolean oBytes;
+
+    private boolean mIsEnabled;
+    private volatile boolean mIsObscured = false;
+    private @LocationInt int mLocation;
+
+    private final int mResourceFontSize;
+    // Recreated per attach: a HandlerThread cannot be restarted after quitSafely().
+    private HandlerThread mHandlerThread;
+    private Looper mLooper;
+    private Handler mTrafficHandler;
+
+    private final Handler.Callback mTrafficHandlerCallback = new Handler.Callback() {
+        private long totalRxBytes;
+        private long totalTxBytes;
+
+        @Override
+        public boolean handleMessage(Message msg) {
+            // getHandler() is null once detached; bail so a detach mid-poll cannot NPE.
+            final Handler viewHandler = getHandler();
+            if (viewHandler == null) return true;
+            final boolean isUpdate = msg.what == MSG_UPDATE;
+            final long now = SystemClock.elapsedRealtime();
+            long timeDelta = now - mLastUpdateTime;
+            timeDelta = Math.max(timeDelta, 1);
+
+            if (!isUpdate && timeDelta < INTERVAL * .95f) {
+                // Too soon → skip this sample
+                mTrafficHandler.removeCallbacksAndMessages(null);
+                if (!isDisabled() && mScreenOn) {
+                    final long delay = Math.max(INTERVAL - timeDelta, 1);
+                    mTrafficHandler.sendEmptyMessageDelayed(MSG_PERIODIC, delay);
+                }
+                return true;
+            }
+            mLastUpdateTime = now;
+
+            long newTotalRxBytes = TrafficStats.getTotalRxBytes();
+            long newTotalTxBytes = TrafficStats.getTotalTxBytes();
+            long rxData = 0;
+            long txData = 0;
+            iBytes = false;
+            oBytes = false;
+
+            if (!isUpdate) {
+                // Calculate the data rate from the change in total bytes and time
+                rxData = newTotalRxBytes - totalRxBytes;
+                txData = newTotalTxBytes - totalTxBytes;
+                iBytes = (rxData <= (mAutoHideThreshold * 1024L));
+                oBytes = (txData <= (mAutoHideThreshold * 1024L));
+            } else {
+                totalRxBytes = 0;
+                totalTxBytes = 0;
+            }
+
+            // Skip on rebaseline (zeroed deltas); obscured only affects visibility, so the
+            // text stays current while hidden.
+            if (!isUpdate && shouldHide(rxData, txData, timeDelta)) {
+                viewHandler.post(() -> {
+                    synchronized(NetworkTraffic.this) {
+                        setText("");
+                        setVisibility(View.INVISIBLE);
+                    }
+                });
+            } else if (!isUpdate) {
+                String output;
+                switch (mTrafficType) {
+                    case UP:
+                        output = formatOutput(timeDelta, txData);
+                        break;
+                    case DOWN:
+                        output = formatOutput(timeDelta, rxData);
+                        break;
+                    case BOTH:
+                        // Get information for uplink ready so the line return can be added
+                        output = formatOutput(timeDelta, txData);
+                        // Ensure text size is where it needs to be
+                        output += "\n";
+                        // Add information for downlink if it's called for
+                        output += formatOutput(timeDelta, rxData);
+                        break;
+                    case DYNAMIC:
+                        if (txData > rxData) {
+                            output = formatOutput(timeDelta, txData);
+                            iBytes = true;
+                        } else {
+                            output = formatOutput(timeDelta, rxData);
+                            oBytes = true;
+                        }
+                        break;
+                    default: // COMBINED
+                        output = formatOutput(timeDelta, rxData + txData);
+                        if (txData > rxData) iBytes = true;
+                        else oBytes = true;
+                        break;
+                }
+                // Update view if there's anything new to show
+                final String out = mTextEnabled ? output : "";
+                viewHandler.post(() -> {
+                    synchronized(NetworkTraffic.this) {
+                        if (!out.contentEquals(getText()))
+                            setText(out);
+                        final boolean isTextOnly = !mTextEnabled && mShowArrow;
+                        final boolean isValidOut = !out.isEmpty() && sizeCheck();
+                        final boolean visible = (isTextOnly || isValidOut) && !mIsObscured;
+                        setVisibility(visible ? View.VISIBLE : View.INVISIBLE);
+                    }
+                });
+            }
+            viewHandler.post(() -> {
+                synchronized(NetworkTraffic.this) {
+                    updateTrafficDrawable();
+                }
+            });
+
+            // Post delayed message to refresh in INTERVAL ms
+            totalRxBytes = newTotalRxBytes;
+            totalTxBytes = newTotalTxBytes;
+            mTrafficHandler.removeCallbacksAndMessages(null);
+            if (!isDisabled() && mScreenOn) {
+                mTrafficHandler.sendEmptyMessageDelayed(MSG_PERIODIC,
+                        isUpdate ? 0 : INTERVAL);
+            } else {
+                viewHandler.post(() -> {
+                    synchronized(NetworkTraffic.this) {
+                        setText("");
+                        setVisibility(View.INVISIBLE);
+                    }
+                });
+            }
+
+            return true;
+        }
+
+        private String formatOutput(long timeDelta, long data) {
+            long speed = (long)(data / (timeDelta / 1000F));
+            if (speed < KB) return decimalFormat.format(speed) + SYMBOL;
+            if (speed < MB) return decimalFormat.format(speed / (float)KB) + 'K' + SYMBOL;
+            if (speed < GB) return decimalFormat.format(speed / (float)MB) + 'M' + SYMBOL;
+            return decimalFormat.format(speed / (float)GB) + 'G' + SYMBOL;
+        }
+
+        private boolean shouldHide(long rxData, long txData, long timeDelta) {
+            if (isDisabled()) return true;
+            if (!mIsConnected) return true;
+            long speedTxKB = (long)(txData / (timeDelta / 1000f)) / KB;
+            long speedRxKB = (long)(rxData / (timeDelta / 1000f)) / KB;
+            if (mTrafficType == UP) return speedTxKB < mAutoHideThreshold;
+            if (mTrafficType == DOWN) return speedRxKB < mAutoHideThreshold;
+            return (speedRxKB < mAutoHideThreshold && speedTxKB < mAutoHideThreshold);
+        }
+    };
+
+    private final BroadcastReceiver mIntentReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            if (action == null) return;
+
+            if (action.equals(Intent.ACTION_SCREEN_ON)) {
+                if (mScreenOn) return;
+                mScreenOn = true;
+                postUpdateSettings();
+            } else if (action.equals(Intent.ACTION_SCREEN_OFF)) {
+                if (!mScreenOn) return;
+                mLastUpdateTime = 0;
+                mScreenOn = false;
+                mTrafficHandler.removeCallbacksAndMessages(null);
+            }
+        }
+    };
+
+    private final ConnectivityManager mConnectivityManager;
+    private final ConnectivityManager.NetworkCallback mNetworkCallback =
+            new ConnectivityManager.NetworkCallback() {
+        @Override
+        public void onAvailable(Network network) {
+            if (mIsConnected) return;
+            mIsConnected = true;
+            if (mScreenOn) postUpdateSettings();
+        }
+
+        @Override
+        public void onLost(Network network) {
+            if (!mIsConnected) return;
+            mIsConnected = false;
+            if (mScreenOn) postUpdateSettings();
+        }
+    };
+
+    private final DisplayManager mDisplayManager;
+    private final DisplayManager.DisplayListener mDisplayListener =
+            new DisplayManager.DisplayListener() {
+        @Override
+        public void onDisplayAdded(int displayId) { /* Do nothing */ }
+
+        @Override
+        public void onDisplayRemoved(int displayId) { /* Do nothing */ }
+
+        @Override
+        public void onDisplayChanged(int displayId) {
+            if (getDisplay().getDisplayId() != displayId) return;
+            final DisplayMetrics metrics = getResources().getDisplayMetrics();
+            if (metrics.equals(mDisplayMetrics)) {
+                return;
+            }
+            mDisplayMetrics = metrics;
+            if (mScreenOn) postUpdateSettings();
+        }
+    };
+
+    private final SettingsObserver mSettingsObserver = new SettingsObserver(getHandler());
+    private class SettingsObserver extends ContentObserver {
+        SettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        void start() {
+            final ContentResolver resolver = getContext().getContentResolver();
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_STATE), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_TYPE), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_ARROW), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_VIEW_LOCATION), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_FONT_SIZE), false,
+                    this, UserHandle.USER_ALL);
+            resolver.registerContentObserver(Settings.System
+                    .getUriFor(Settings.System.NETWORK_TRAFFIC_TEXT_ENABLED), false,
+                    this, UserHandle.USER_ALL);
+        }
+
+        void stop() {
+            getContext().getContentResolver().unregisterContentObserver(this);
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            setMode();
+            postUpdateSettings();
+        }
+    }
+
+    public NetworkTraffic(Context context) {
+        this(context, null);
+    }
+
+    public NetworkTraffic(Context context, AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public NetworkTraffic(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
+        setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        mConnectivityManager = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
+        mDisplayManager = (DisplayManager) context.getSystemService(Context.DISPLAY_SERVICE);
+        mResourceFontSize = getResources().getDimensionPixelSize(R.dimen.net_traffic_multi_text_size);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        if (!mAttached) {
+            mAttached = true;
+            mHandlerThread = new HandlerThread(THREAD_NAME);
+            mHandlerThread.start();
+            mLooper = mHandlerThread.getLooper();
+            mTrafficHandler = new Handler(mLooper, mTrafficHandlerCallback);
+            mDisplayMetrics = getResources().getDisplayMetrics();
+            mIsConnected = mConnectivityManager.getActiveNetwork() != null;
+            // Re-seed: the receiver is unregistered while detached, and a missed SCREEN_ON
+            // would leave polling dead.
+            final Display display = getDisplay();
+            mScreenOn = display == null || display.getState() == Display.STATE_ON;
+            onConfigChanged(getResources().getConfiguration());
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_SCREEN_OFF);
+            filter.addAction(Intent.ACTION_SCREEN_ON);
+            getContext().registerReceiver(mIntentReceiver, filter, null, getHandler());
+            mDisplayManager.registerDisplayListener(mDisplayListener, getHandler());
+            mConnectivityManager.registerDefaultNetworkCallback(mNetworkCallback);
+            mSettingsObserver.start();
+        }
+        setMode();
+        updateSettings();
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        if (mAttached) {
+            getContext().unregisterReceiver(mIntentReceiver);
+            mDisplayManager.unregisterDisplayListener(mDisplayListener);
+            mConnectivityManager.unregisterNetworkCallback(mNetworkCallback);
+            mSettingsObserver.stop();
+            mHandlerThread.quitSafely();
+            mAttached = false;
+        }
+    }
+
+    @Override
+    protected void onConfigurationChanged(Configuration newConfig) {
+        super.onConfigurationChanged(newConfig);
+        onConfigChanged(newConfig);
+    }
+
+    protected void onConfigChanged(Configuration newConfig) {
+        int currentNightMode = newConfig.uiMode & Configuration.UI_MODE_NIGHT_MASK;
+        if (currentNightMode == mCurrentNightMode) {
+            return;
+        }
+        mCurrentNightMode = currentNightMode;
+        switch (currentNightMode) {
+            case Configuration.UI_MODE_NIGHT_NO:
+                setTintColor(Color.BLACK);
+                break;
+            case Configuration.UI_MODE_NIGHT_YES:
+                setTintColor(Color.WHITE);
+                break;
+        }
+    }
+
+    /** Posts {@link #updateSettings()} to the view's handler iff the view is still attached. */
+    private void postUpdateSettings() {
+        final Handler h = getHandler();
+        if (h != null) h.post(this::updateSettings);
+    }
+
+    private synchronized void updateSettings() {
+        if (!mAttached) return;
+        updateTextSize();
+        updateTrafficDrawable();
+        mTrafficHandler.removeCallbacksAndMessages(null);
+        if (mIsEnabled && mAttached && !isDisabled()) {
+            mLastUpdateTime = SystemClock.elapsedRealtime();
+            mTrafficHandler.sendEmptyMessage(MSG_UPDATE);
+        } else {
+            setText("");
+            setVisibility(View.INVISIBLE);
+        }
+    }
+
+    private void setMode() {
+        ContentResolver resolver = getContext().getContentResolver();
+        mIsEnabled = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_STATE, 0,
+                UserHandle.USER_CURRENT) == 1;
+        mTrafficType = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_TYPE, 0,
+                UserHandle.USER_CURRENT);
+        mAutoHideThreshold = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD, 1,
+                UserHandle.USER_CURRENT);
+        mShowArrow = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_ARROW, 1,
+                UserHandle.USER_CURRENT) == 1;
+        mLocation = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_VIEW_LOCATION, 0,
+                UserHandle.USER_CURRENT);
+        mFontSize = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_FONT_SIZE, 10,
+                UserHandle.USER_CURRENT);
+        mTextEnabled = Settings.System.getIntForUser(resolver,
+                Settings.System.NETWORK_TRAFFIC_TEXT_ENABLED, 1,
+                UserHandle.USER_CURRENT) == 1;
+
+        // Arrows and text may not both be off; clamp in memory only to avoid re-entering
+        // the observer.
+        if (!mShowArrow && !mTextEnabled) {
+            mShowArrow = true;
+        }
+    }
+
+    private void updateTrafficDrawable() {
+        int intTrafficDrawable = 0;
+        if (mIsEnabled && mShowArrow && !isDisabled()) {
+            switch (mTrafficType) {
+                case UP:
+                    if (oBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic;
+                    else intTrafficDrawable = R.drawable.stat_sys_network_traffic_up;
+                    break;
+                case DOWN:
+                    if (iBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic;
+                    else intTrafficDrawable = R.drawable.stat_sys_network_traffic_down;
+                    break;
+                case DYNAMIC: case COMBINED:
+                    if (iBytes && !oBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic_up;
+                    else if (!iBytes && oBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic_down;
+                    else intTrafficDrawable = R.drawable.stat_sys_network_traffic;
+                    break;
+                default: // BOTH
+                    if (!iBytes && !oBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic_updown;
+                    else if (!oBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic_up;
+                    else if (!iBytes) intTrafficDrawable = R.drawable.stat_sys_network_traffic_down;
+                    else intTrafficDrawable = R.drawable.stat_sys_network_traffic;
+                    break;
+            }
+        }
+        if (intTrafficDrawable != 0) {
+            Drawable d = getContext().getDrawable(intTrafficDrawable);
+            if (d != null) d.setColorFilter(new PorterDuffColorFilter(getCurrentTextColor(), Mode.MULTIPLY));
+            setCompoundDrawablePadding(getResources().getDimensionPixelSize(R.dimen.net_traffic_txt_img_padding));
+            setCompoundDrawablesWithIntrinsicBounds(null, null, d, null);
+            return;
+        }
+        setCompoundDrawablesWithIntrinsicBounds(null, null, null, null);
+    }
+
+    public void setTintColor(int color) {
+        setTextColor(color);
+        updateTrafficDrawable();
+    }
+
+    /** Single-line debug state, surfaced through ShadeHeaderController's dumpsys output. */
+    public String dumpState() {
+        return "enabled=" + mIsEnabled + " location=" + mLocation
+                + " obscured=" + mIsObscured + " connected=" + mIsConnected
+                + " screenOn=" + mScreenOn + " type=" + mTrafficType
+                + " threshold=" + mAutoHideThreshold + " attached=" + mAttached
+                + " visibility=" + getVisibility() + " alpha=" + getAlpha()
+                + " textSizePx=" + getTextSize() + " size=" + getWidth() + "x" + getHeight()
+                + " text=\"" + getText() + "\"";
+    }
+
+    public void setIsObscured(boolean obscured) {
+        if (mIsObscured == obscured) return;
+        mIsObscured = obscured;
+        // Flip visibility directly so the change takes effect immediately.
+        if (obscured) {
+            setVisibility(View.INVISIBLE);
+        } else {
+            final boolean isTextOnly = !mTextEnabled && mShowArrow;
+            if (isTextOnly || getText().length() > 0) setVisibility(View.VISIBLE);
+            updateSettings();
+        }
+    }
+
+    boolean isDisabled() {
+        return !mIsEnabled || mLocation == LOCATION_STATUSBAR;
+    }
+
+    /**
+     * updates the text size and properties according to user settings
+     * @return array of int. index 0 contains the size and index 1 the unit. null if disabled
+     */
+    int[] updateTextSize() {
+        if (isDisabled()) return null;
+        int size = mResourceFontSize;
+        int unit = TypedValue.COMPLEX_UNIT_PX;
+        if (mTrafficType == BOTH) {
+            setTextSize(unit, (float)size);
+            setMaxLines(2);
+            return new int[] { size, unit };
+        }
+        size = mFontSize;
+        unit = TypedValue.COMPLEX_UNIT_DIP;
+        setTextSize(unit, (float)size);
+        setMaxLines(1);
+        return new int[] { size, unit };
+    }
+
+    DisplayMetrics getDisplayMetrics() {
+        if (mDisplayMetrics == null) {
+            mDisplayMetrics = getResources().getDisplayMetrics();
+        }
+        return mDisplayMetrics;
+    }
+
+    @LocationInt
+    int getLocation() {
+        return mLocation;
+    }
+
+    boolean getIsEnabled() {
+        return mIsEnabled;
+    }
+
+    boolean sizeCheck() {
+        return true;
+    }
+}

@@ -132,6 +132,13 @@ public class SystemSettings {
                 Settings.System.CV_PREFERRED_INTENSITY,
                 Settings.System.PEAK_REFRESH_RATE,
                 Settings.System.MIN_REFRESH_RATE,
+                Settings.System.NETWORK_TRAFFIC_STATE,
+                Settings.System.NETWORK_TRAFFIC_TYPE,
+                Settings.System.NETWORK_TRAFFIC_AUTOHIDE_THRESHOLD,
+                Settings.System.NETWORK_TRAFFIC_ARROW,
+                Settings.System.NETWORK_TRAFFIC_FONT_SIZE,
+                Settings.System.NETWORK_TRAFFIC_TEXT_ENABLED,
+                Settings.System.NETWORK_TRAFFIC_VIEW_LOCATION,
                 Settings.System.ACCESSIBILITY_FORCE_INVERT_COLOR_OVERRIDE_PACKAGES_TO_DISABLE
         ));
         return settings.toArray(new String[0]);

@@ -1,0 +1,89 @@
+/*
+ * Copyright (C) 2021 Yet Another AOSP Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.android.systemui.statusbar.policy;
+
+import android.content.res.Configuration;
+import android.content.Context;
+import android.graphics.Rect;
+import android.util.AttributeSet;
+import android.util.TypedValue;
+
+import android.view.ViewGroup;
+import com.android.systemui.plugins.DarkIconDispatcher;
+import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
+
+import java.util.ArrayList;
+
+public class NetworkTrafficSB extends NetworkTraffic implements DarkReceiver {
+
+    public NetworkTrafficSB(Context context) {
+        this(context, null);
+    }
+
+    public NetworkTrafficSB(Context context, AttributeSet attrs) {
+        this(context, attrs, 0);
+    }
+
+    public NetworkTrafficSB(Context context, AttributeSet attrs, int defStyle) {
+        super(context, attrs, defStyle);
+        setLayoutParams(new ViewGroup.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+    }
+
+    @Override
+    public void onDarkChanged(ArrayList<Rect> area, float darkIntensity, int tint) {
+        setTintColor(DarkIconDispatcher.getTint(area, this, tint));
+    }
+
+    @Override
+    protected void onConfigChanged(Configuration newConfig) {
+        // do nothing
+    }
+
+    @Override
+    int[] updateTextSize() {
+        final int[] arr = super.updateTextSize();
+        if (arr == null) return null;
+        final int size = Math.max(arr[0], 2);
+        final int unit = arr[1];
+        if (getMaxLines() >= 2) {
+            // Two-line mode: auto-size against the stable status bar height.
+            setAutoSizeTextTypeUniformWithConfiguration(1, size, 1, unit);
+        } else {
+            // Single-line mode: fixed size — auto-size with wrap_content ratchets down
+            // irreversibly and sizeCheck() would then hide the view permanently.
+            setAutoSizeTextTypeWithDefaults(AUTO_SIZE_TEXT_TYPE_NONE);
+            setTextSize(unit, (float) size);
+        }
+        return arr;
+    }
+
+    boolean sizeCheck() {
+        // don't show a very tiny text (6sp minimum)
+        // if we reached this size just hide the entire view
+        final float dpTextSize = TypedValue.convertPixelsToDimension(
+                TypedValue.COMPLEX_UNIT_SP, getTextSize(), getDisplayMetrics());
+        return dpTextSize >= 6f;
+    }
+
+    @Override
+    boolean isDisabled() {
+        return !getIsEnabled() || getLocation() == LOCATION_QS_HEADER;
+    }
+}

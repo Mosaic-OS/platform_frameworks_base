@@ -464,6 +464,7 @@ public class KeyguardStatusBarView extends RelativeLayout {
 
         mDarkChange.setValue(new DarkChange(mEmptyTintRect, intensity, iconColor));
         applyDarkness(R.id.clock, mEmptyTintRect, intensity, iconColor);
+        applyDarkness(R.id.networkTraffic, mEmptyTintRect, intensity, iconColor);
     }
 
     private void applyDarkness(int id, ArrayList<Rect> tintAreas, float intensity, int color) {

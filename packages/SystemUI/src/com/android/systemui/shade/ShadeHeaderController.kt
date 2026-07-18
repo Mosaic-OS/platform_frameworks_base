@@ -74,6 +74,7 @@ import com.android.systemui.shade.data.repository.ShadeDisplaysRepository
 import com.android.systemui.statusbar.phone.StatusBarLocation
 import com.android.systemui.statusbar.phone.StatusIconContainer
 import com.android.systemui.statusbar.phone.StatusOverlayHoverListenerFactory
+import com.android.systemui.statusbar.policy.NetworkTraffic
 import com.android.systemui.statusbar.phone.domain.interactor.IsAreaDark
 import com.android.systemui.statusbar.phone.ui.StatusBarIconController
 import com.android.systemui.statusbar.phone.ui.TintedIconManager
@@ -133,6 +134,9 @@ constructor(
     companion object {
         const val TRACK_NAME = "ShadeHeaderController"
 
+        /** Show the traffic monitor at/above this fraction; it can settle short of 1f. */
+        private const val NETWORK_TRAFFIC_SHOW_FRACTION = 0.99f
+
         /** IDs for transitions and constraints for the [MotionLayout]. */
         @VisibleForTesting internal val HEADER_TRANSITION_ID = R.id.header_transition
 
@@ -167,6 +171,8 @@ constructor(
     private val mShadeCarrierGroup: ShadeCarrierGroup = header.requireViewById(R.id.carrier_group)
     private val systemIconsHoverContainer: View =
         header.requireViewById(R.id.hover_system_icons_container)
+    // findViewById: a missing optional view must not take SystemUI down.
+    private val networkTraffic: NetworkTraffic? = header.findViewById(R.id.networkTraffic)
 
     private var roundedCorners = 0
     private var cutout: DisplayCutout? = null
@@ -283,6 +289,9 @@ constructor(
                 val update =
                     combinedShadeHeadersConstraintManager.privacyChipVisibilityConstraints(visible)
                 header.updateAllConstraints(update)
+                setNetworkTrafficVisible(
+                    qsExpandedFraction >= NETWORK_TRAFFIC_SHOW_FRACTION && !visible
+                )
             }
         }
 
@@ -374,6 +383,7 @@ constructor(
             shadeCarrierGroupControllerBuilder.setShadeCarrierGroup(mShadeCarrierGroup).build()
 
         privacyIconsController.onParentVisible()
+        setNetworkTrafficVisible(false)
     }
 
     private fun getBgColor() =
@@ -616,6 +626,16 @@ constructor(
             header.progress = qsExpandedFraction
             updateBatteryMode()
         }
+        // Live chip read: a cached flag can go stale and wedge the monitor hidden.
+        setNetworkTrafficVisible(
+            qsExpandedFraction >= NETWORK_TRAFFIC_SHOW_FRACTION &&
+                !privacyIconsController.getIsChipVisible() &&
+                visible
+        )
+    }
+
+    private fun setNetworkTrafficVisible(isVisible: Boolean) {
+        networkTraffic?.setIsObscured(!isVisible)
     }
 
     private fun logInstantEvent(message: String) {
@@ -674,6 +694,8 @@ constructor(
         pw.println("qsExpandedFraction: $qsExpandedFraction")
         pw.println("qsScrollY: $qsScrollY")
         pw.println("currentState: ${header.currentState.stateToString()}")
+        pw.println("chipVisible: ${privacyIconsController.getIsChipVisible()}")
+        pw.println("networkTraffic: ${networkTraffic?.dumpState() ?: "view not found"}")
     }
 
     private fun MotionLayout.updateConstraints(@IdRes state: Int, update: ConstraintChange) {
