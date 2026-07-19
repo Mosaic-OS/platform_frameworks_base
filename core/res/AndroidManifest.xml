@@ -862,6 +862,10 @@
     <!-- Added in 25Q4 -->
     <protected-broadcast android:name="android.intent.action.STOP_VOICE_COMMAND" />
 
+    <!-- Used for long press power torch feature - automatic turn off on timeout -->
+    <protected-broadcast android:name="com.android.server.policy.PhoneWindowManager.ACTION_TORCH_OFF" />
+
+
     <!-- Added in 26Q2 -->
     <protected-broadcast android:name="android.app.action.ALLOWED_NAS_ADJUSTMENT_KEYS_CHANGED" />
     <protected-broadcast android:name="android.app.action.SUPPORTED_NAS_ADJUSTMENT_KEYS_CHANGED" />

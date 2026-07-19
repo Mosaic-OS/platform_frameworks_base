@@ -7581,6 +7581,24 @@ public final class Settings {
          * @hide
          */
         public static final String THEME_AMOLED_BLACK = "theme_amoled_black";
+
+        /**
+         * Quick torch gesture
+         * @hide
+         */
+        public static final String TORCH_LONG_PRESS_POWER_GESTURE = "torch_long_press_power_gesture";
+
+        /**
+        * Quick torch timeout
+        * @hide
+        */
+        public static final String TORCH_LONG_PRESS_POWER_TIMEOUT = "torch_long_press_power_timeout";
+
+        /**
+         * Quick torch vibration feedback
+         * @hide
+         */
+        public static final String TORCH_LONG_PRESS_POWER_VIBRATE = "torch_long_press_power_vibrate";
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to
