@@ -36,9 +36,12 @@ import android.animation.AnimatorListenerAdapter;
 import android.animation.ValueAnimator;
 import android.app.Fragment;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.graphics.Insets;
 import android.graphics.Rect;
 import android.graphics.Region;
+import android.os.Handler;
+import android.os.UserHandle;
 import android.util.IndentingPrintWriter;
 import android.util.Log;
 import android.util.MathUtils;
@@ -51,6 +54,7 @@ import android.view.WindowManager;
 import android.view.WindowMetrics;
 import android.view.accessibility.AccessibilityManager;
 import android.widget.FrameLayout;
+import android.provider.Settings;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -108,6 +112,7 @@ import com.android.systemui.statusbar.phone.StatusBarKeyguardViewManager;
 import com.android.systemui.statusbar.policy.CastController;
 import com.android.systemui.statusbar.policy.KeyguardStateController;
 import com.android.systemui.statusbar.policy.SplitShadeStateController;
+import com.android.systemui.user.domain.interactor.SelectedUserInteractor;
 import com.android.systemui.util.LargeScreenUtils;
 import com.android.systemui.util.kotlin.JavaAdapter;
 import com.android.systemui.utils.windowmanager.WindowManagerProvider;
@@ -292,6 +297,16 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
     /** The duration of the notification bounds animation. */
     private long mNotificationBoundsAnimationDuration;
 
+    // Quick-pulldown mode (status_bar_quick_qs_pulldown): written from the settings observer
+    // (binder thread) and read on the UI thread in isOpenQsEvent(); volatile for visibility.
+    private static final int QUICK_PULLDOWN_OFF = 0;
+    private static final int QUICK_PULLDOWN_RIGHT = 1;
+    private static final int QUICK_PULLDOWN_LEFT = 2;
+    private static final int QUICK_PULLDOWN_BOTH = 3;
+    private static final float QUICK_PULLDOWN_REGION_FRACTION = 1f / 4f;
+    private volatile int mOneFingerQuickSettingsIntercept;
+    private final ContentObserver mOneFingerQuickSettingsInterceptObserver;
+
     private final Region mInterceptRegion = new Region();
     /** The end bounds of a clipping animation. */
     private final Rect mClippingAnimationEndBounds = new Rect();
@@ -361,7 +376,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
             SplitShadeStateController splitShadeStateController,
             Lazy<CommunalTransitionViewModel> communalTransitionViewModelLazy,
             Lazy<LargeScreenHeaderHelper> largeScreenHeaderHelperLazy,
-            WindowManagerProvider windowManagerProvider
+            WindowManagerProvider windowManagerProvider,
+            SelectedUserInteractor selectedUserInteractor
     ) {
         mDisplaySubcomponentRepository = displaySubcomponentRepository;
         mShadeDisplaysInteractorLazy = shadeDisplaysInteractorLazy;
@@ -413,6 +429,17 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         mJavaAdapter = javaAdapter;
 
         mLockscreenShadeTransitionController.addCallback(new LockscreenShadeTransitionCallback());
+
+        mOneFingerQuickSettingsInterceptObserver = new ContentObserver(null) {
+            @Override
+            public void onChange(boolean selfChange) {
+                mOneFingerQuickSettingsIntercept = Settings.Secure.getIntForUser(
+                        mPanelView.getContext().getContentResolver(),
+                        Settings.Secure.STATUS_BAR_QUICK_QS_PULLDOWN, 0,
+                        selectedUserInteractor.getSelectedUserId());
+            }
+        };
+
         dumpManager.registerDumpable(this);
 
         mWindowManagerProvider = windowManagerProvider;
@@ -612,7 +639,28 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
                         MotionEvent.BUTTON_SECONDARY) || event.isButtonPressed(
                         MotionEvent.BUTTON_TERTIARY));
 
-        return twoFingerDrag || stylusButtonClickDrag || mouseButtonClickDrag;
+        boolean showQsOverride = false;
+        // mQs can be null while the QS fragment view is detached, and this runs for every touch.
+        if (mQs != null && mOneFingerQuickSettingsIntercept != QUICK_PULLDOWN_OFF) {
+            final float w = mQs.getView().getMeasuredWidth();
+            final float x = event.getX();
+            final float region = w * QUICK_PULLDOWN_REGION_FRACTION;
+            final boolean isRtl = mQs.getView().isLayoutRtl();
+            switch (mOneFingerQuickSettingsIntercept) {
+                case QUICK_PULLDOWN_RIGHT:
+                    showQsOverride = isRtl ? x < region : w - region < x;
+                    break;
+                case QUICK_PULLDOWN_LEFT:
+                    showQsOverride = isRtl ? w - region < x : x < region;
+                    break;
+                case QUICK_PULLDOWN_BOTH:
+                    showQsOverride = (x < region) || (w - region < x);
+                    break;
+            }
+            showQsOverride &= mBarState == StatusBarState.SHADE;
+        }
+
+        return twoFingerDrag || showQsOverride || stylusButtonClickDrag || mouseButtonClickDrag;
     }
 
     @Override
@@ -2292,6 +2340,12 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
 
             mNotificationStackScrollLayoutController.setQsHeaderBoundsProvider(provider);
             mQs.setScrollListener(mQsScrollListener);
+            mPanelView.getContext().getContentResolver().registerContentObserver(
+                    Settings.Secure.getUriFor(
+                            Settings.Secure.STATUS_BAR_QUICK_QS_PULLDOWN),
+                    false, mOneFingerQuickSettingsInterceptObserver,
+                    UserHandle.USER_ALL);
+            mOneFingerQuickSettingsInterceptObserver.onChange(true);
             updateExpansion();
         }
 
@@ -2300,6 +2354,8 @@ public class QuickSettingsControllerImpl implements QuickSettingsController, Dum
         /** */
         @Override
         public void onFragmentViewDestroyed(String tag, Fragment fragment) {
+            mPanelView.getContext().getContentResolver().unregisterContentObserver(
+                    mOneFingerQuickSettingsInterceptObserver);
             // Manual handling of fragment lifecycle is only required because this bridges
             // non-fragment and fragment code. Once we are using a fragment for the notification
             // panel, mQs will not need to be null cause it will be tied to the same lifecycle.

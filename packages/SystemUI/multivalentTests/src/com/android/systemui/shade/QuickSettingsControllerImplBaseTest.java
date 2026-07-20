@@ -273,7 +273,8 @@ public class QuickSettingsControllerImplBaseTest extends SysuiTestCase {
                 splitShadeStateController,
                 () -> mKosmos.getCommunalTransitionViewModel(),
                 () -> mLargeScreenHeaderHelper,
-                mWindowManagerProvider
+                mWindowManagerProvider,
+                mSelectedUserInteractor
         );
         mQsController.init();
 

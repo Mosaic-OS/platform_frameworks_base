@@ -557,5 +557,7 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_TIMEOUT,
                 new InclusiveIntegerRangeValidator(0, 3600));
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_VIBRATE, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.STATUS_BAR_QUICK_QS_PULLDOWN,
+                new InclusiveIntegerRangeValidator(0, 3));
     }
 }

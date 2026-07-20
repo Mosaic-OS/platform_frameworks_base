@@ -7599,6 +7599,12 @@ public final class Settings {
          * @hide
          */
         public static final String TORCH_LONG_PRESS_POWER_VIBRATE = "torch_long_press_power_vibrate";
+
+        /**
+        * Quick pulldown
+        * @hide
+        */
+        public static final String STATUS_BAR_QUICK_QS_PULLDOWN = "status_bar_quick_qs_pulldown";
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to
