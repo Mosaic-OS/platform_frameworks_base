@@ -7645,6 +7645,24 @@ public final class Settings {
 
         /** @hide */
         public static final String NOTIFICATION_ACCENT = "notification_accent";
+
+		/**
+         * Show navigation bar pill
+         * @hide
+         */
+        public static final String SHOW_NAVIGATION_PILL = "show_navigation_pill";
+
+        /**
+         * Pill length mode.
+         * Supported modes: 0 for short length, 1 for normal and 2 for long.
+         * @hide
+         */
+        public static final String PILL_LENGTH_MODE = "pill_length_mode";
+
+		/**
+         * @hide
+         */
+        public static final String PILL_HEIGHT_MODE = "pill_height_mode";
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

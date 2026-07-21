@@ -559,6 +559,11 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_VIBRATE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.STATUS_BAR_QUICK_QS_PULLDOWN,
                 new InclusiveIntegerRangeValidator(0, 3));
+        VALIDATORS.put(Secure.SHOW_NAVIGATION_PILL, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.PILL_LENGTH_MODE,
+                new InclusiveIntegerRangeValidator(0, 2));
+        VALIDATORS.put(Secure.PILL_HEIGHT_MODE,
+                new InclusiveIntegerRangeValidator(0, 4));
         VALIDATORS.put(Secure.BACKGROUND_BLUR_RADIUS,
                 new InclusiveFloatRangeValidator(0, 1000));
         VALIDATORS.put(Secure.BACKGROUND_TRANSPARENCY,
