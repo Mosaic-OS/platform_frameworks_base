@@ -559,5 +559,13 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_VIBRATE, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.STATUS_BAR_QUICK_QS_PULLDOWN,
                 new InclusiveIntegerRangeValidator(0, 3));
+        VALIDATORS.put(Secure.BACKGROUND_BLUR_RADIUS,
+                new InclusiveFloatRangeValidator(0, 1000));
+        VALIDATORS.put(Secure.BACKGROUND_TRANSPARENCY,
+                new InclusiveFloatRangeValidator(0, 1));
+        VALIDATORS.put(Secure.NOTIFICATION_TRANSPARENCY,
+                new InclusiveFloatRangeValidator(0, 1));
+        VALIDATORS.put(Secure.BACKGROUND_ACCENT, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.NOTIFICATION_ACCENT, BOOLEAN_VALIDATOR);
     }
 }

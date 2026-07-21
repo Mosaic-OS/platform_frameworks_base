@@ -7618,6 +7618,33 @@ public final class Settings {
         * @hide
         */
         public static final String STATUS_BAR_QUICK_QS_PULLDOWN = "status_bar_quick_qs_pulldown";
+
+        /**
+         * Custom blur & transparency
+         */
+
+        /** @hide */
+        public static final String BACKGROUND_BLUR_RADIUS = "background_blur_radius";
+
+        /** @hide */
+        public static final String BACKGROUND_TRANSPARENCY = "background_transparency";
+
+        /** @hide */
+        public static final String NOTIFICATION_TRANSPARENCY = "notification_transparency";
+
+        /**
+         * Whether to use accent color for quick settings background
+        */
+
+        /** @hide */
+        public static final String BACKGROUND_ACCENT = "background_accent";
+
+        /**
+         * Whether to use accent color for notification panel
+        */
+
+        /** @hide */
+        public static final String NOTIFICATION_ACCENT = "notification_accent";
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to

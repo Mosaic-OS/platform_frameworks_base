@@ -104,6 +104,10 @@ import java.util.function.Consumer;
 
 import javax.inject.Inject;
 
+import android.database.ContentObserver;
+import android.content.ContentResolver;
+import android.provider.Settings;
+
 /**
  * Controls both the scrim behind the notifications and in front of the notifications (when a
  * security method gets shown). Unused when the scene_container flag is enabled.
@@ -115,6 +119,13 @@ import javax.inject.Inject;
 public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dumpable {
 
     static final String TAG = "ScrimController";
+
+    private static final String BACKGROUND_BLUR_RADIUS = "background_blur_radius";
+    private static final String BACKGROUND_TRANSPARENCY = "background_transparency";
+    private static final String NOTIFICATION_TRANSPARENCY = "notification_transparency";
+    private static final String NOTIFICATION_ACCENT = "notification_accent";
+    private static final String BACKGROUND_ACCENT = "background_accent";
+
     private static final boolean DEBUG = Log.isLoggable(TAG, Log.DEBUG);
 
     // debug mode colors scrims with below debug colors, irrespectively of which state they're in
@@ -486,6 +497,10 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         hydrateStateInternally(behindScrim);
 
         mViewsAttached = true;
+
+        // Cache the custom-scrim settings and keep them in sync via an observer, off the frame path.
+        refreshCustomScrimSettings();
+        registerScrimSettingsObserver();
     }
 
     private void hydrateStateInternally(ScrimView behindScrim) {
@@ -1035,8 +1050,8 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     private void applyState() {
         debugLog("Applying state: " + mState.name());
         mInFrontTint = mState.getFrontTint();
-        mBehindTint = mState.getBehindTint();
-        mNotificationsTint = mState.getNotifTint();
+        mBehindTint = getShadePanelColor();
+        mNotificationsTint = getNotificationsScrimColor();
 
         mInFrontAlpha = mState.getFrontAlpha();
         mBehindAlpha = mState.getBehindAlpha();
@@ -1074,10 +1089,20 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                     if (Flags.notificationShadeBlur() && isBlurCurrentlySupported()) {
                         // TODO (b/390730594): match any spec for controlling alpha based on shade
                         //  expansion fraction.
-                        mBehindAlpha = mState.getBehindAlpha() * mPanelExpansionFraction;
-                        mBehindTint = mState.getBehindTint();
-                        mNotificationsAlpha = mState.getNotifAlpha() * mPanelExpansionFraction;
-                        mNotificationsTint = mState.getNotifTint();
+                        float customBehindAlpha = mCustomBehindAlpha;
+                        float customNotifAlpha = mCustomNotifAlpha;
+                        if (customBehindAlpha >= 0) {
+                            mBehindAlpha = customBehindAlpha * mPanelExpansionFraction;
+                        } else {
+                            mBehindAlpha = mState.getBehindAlpha() * mPanelExpansionFraction;
+                        }
+                        mBehindTint = getShadePanelColor();
+                        if (customNotifAlpha >= 0) {
+                            mNotificationsAlpha = customNotifAlpha * mPanelExpansionFraction;
+                        } else {
+                            mNotificationsAlpha = mState.getNotifAlpha() * mPanelExpansionFraction;
+                        }
+                        mNotificationsTint = getNotificationsScrimColor();
                     } else {
                         mBehindAlpha = mLargeScreenShadeInterpolator.getBehindScrimAlpha(
                                 mPanelExpansionFraction * getDefaultScrimAlpha());
@@ -1086,7 +1111,7 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                                         mPanelExpansionFraction);
                     }
                 }
-                mBehindTint = mState.getBehindTint();
+                mBehindTint = getShadePanelColor();
                 mInFrontAlpha = 0;
             }
 
@@ -1099,7 +1124,7 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                 mBehindAlpha = MathUtils.lerp(getDefaultScrimAlpha(), mBehindAlpha,
                         interpolatedFraction);
                 mBehindTint = ColorUtils.blendARGB(ScrimState.BOUNCER.getBehindTint(),
-                        mBehindTint,
+                        getShadePanelColor(),
                         interpolatedFraction);
             }
         } else if (mState == ScrimState.KEYGUARD || mState == ScrimState.SHADE_LOCKED
@@ -1129,11 +1154,19 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
             } else {
                 mBehindAlpha = behindAlpha;
                 if (mState == ScrimState.KEYGUARD && mTransitionToFullShadeProgress > 0.0f) {
-                    mNotificationsAlpha = MathUtils
-                            .saturate(mTransitionToLockScreenFullShadeNotificationsProgress);
+                    float customNotifAlpha = mCustomNotifAlpha;
+                    if (customNotifAlpha >= 0) {
+                        mNotificationsAlpha = customNotifAlpha;
+                    } else {
+                        mNotificationsAlpha = MathUtils.saturate(
+                                mTransitionToLockScreenFullShadeNotificationsProgress);
+                    }
                 } else if (mState == ScrimState.SHADE_LOCKED) {
                     // going from KEYGUARD to SHADE_LOCKED state
-                    if (Flags.notificationShadeBlur()) {
+                    float customNotifAlpha = mCustomNotifAlpha;
+                    if (customNotifAlpha >= 0) {
+                        mNotificationsAlpha = customNotifAlpha * getInterpolatedFraction();
+                    } else if (Flags.notificationShadeBlur()) {
                         mNotificationsAlpha = mState.getNotifAlpha() * getInterpolatedFraction();
                     } else {
                         mNotificationsAlpha = getInterpolatedFraction();
@@ -1148,8 +1181,8 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
                 } else {
                     mNotificationsAlpha = Math.max(1.0f - getInterpolatedFraction(), mQsExpansion);
                 }
-                mNotificationsTint = mState.getNotifTint();
-                mBehindTint = behindTint;
+                mNotificationsTint = getNotificationsScrimColor();
+                mBehindTint = getShadePanelColor();
             }
 
             // At the end of a launch animation over the lockscreen, the state is either KEYGUARD or
@@ -1554,8 +1587,8 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
         // At the end of the animation we need to remove the tint.
         if (state == ScrimState.UNLOCKED) {
             mInFrontTint = Color.TRANSPARENT;
-            mBehindTint = mState.getBehindTint();
-            mNotificationsTint = mState.getNotifTint();
+            mBehindTint = getShadePanelColor();
+            mNotificationsTint = getNotificationsScrimColor();
             updateScrimColor(mScrimInFront, mInFrontAlpha, mInFrontTint);
             updateScrimColor(mScrimBehind, mBehindAlpha, mBehindTint);
             updateScrimColor(mNotificationsScrim, mNotificationsAlpha, mNotificationsTint);
@@ -1690,11 +1723,23 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
     }
 
     private int getNotificationsScrimColor() {
-        return ShadeColors.notificationScrim(mContext, isBlurCurrentlySupported());
+        // Cached (refreshed via the settings observer) instead of a Settings IPC per frame.
+        if (mUseNotificationAccent) {
+            return ShadeColors.notificationScrim(mContext, isBlurCurrentlySupported());
+        } else {
+            return mContext.getColor(
+                com.android.internal.R.color.materialColorSurfaceDim);
+        }
     }
 
     private int getShadePanelColor() {
-        return ShadeColors.shadePanel(mContext, isBlurCurrentlySupported(), true);
+        // Cached (refreshed via the settings observer) instead of a Settings IPC per frame.
+        if (mUseBackgroundAccent) {
+            return ShadeColors.shadePanel(mContext, isBlurCurrentlySupported(), true);
+        } else {
+            return mContext.getColor(
+                com.android.internal.R.color.materialColorSurfaceDim);
+        }
     }
 
     private void onThemeChanged() {
@@ -1805,5 +1850,51 @@ public class ScrimController implements ViewTreeObserver.OnPreDrawListener, Dump
             mNeedsDrawableColorUpdate = true;
             scheduleUpdate();
         }
+    }
+
+    // Cached custom-scrim settings; -1f alpha means "unset".
+    private volatile float mCustomBehindAlpha = -1f;        // background_transparency
+    private volatile float mCustomNotifAlpha = -1f;         // notification_transparency
+    private volatile boolean mUseBackgroundAccent = true;   // background_accent
+    private volatile boolean mUseNotificationAccent = true; // notification_accent
+    private boolean mScrimSettingsObserverRegistered;
+
+    private void registerScrimSettingsObserver() {
+        if (mScrimSettingsObserverRegistered) {
+            return;
+        }
+        mScrimSettingsObserverRegistered = true;
+        ContentObserver observer = new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange) {
+                refreshCustomScrimSettings();
+                applyAndDispatchState();
+            }
+        };
+        ContentResolver resolver = mContext.getContentResolver();
+        for (String key : new String[] {
+                BACKGROUND_BLUR_RADIUS, BACKGROUND_TRANSPARENCY,
+                NOTIFICATION_TRANSPARENCY, BACKGROUND_ACCENT, NOTIFICATION_ACCENT}) {
+            resolver.registerContentObserver(Settings.Secure.getUriFor(key), false, observer);
+        }
+    }
+
+    /** Caches the custom-scrim Secure settings so applyState() never does per-frame IPC. */
+    private void refreshCustomScrimSettings() {
+        ContentResolver resolver = mContext.getContentResolver();
+        mUseBackgroundAccent = Settings.Secure.getInt(resolver, BACKGROUND_ACCENT, 1) == 1;
+        mUseNotificationAccent = Settings.Secure.getInt(resolver, NOTIFICATION_ACCENT, 1) == 1;
+        mCustomBehindAlpha = clampScrimAlphaSetting(
+                Settings.Secure.getFloat(resolver, BACKGROUND_TRANSPARENCY, -1f));
+        mCustomNotifAlpha = clampScrimAlphaSetting(
+                Settings.Secure.getFloat(resolver, NOTIFICATION_TRANSPARENCY, -1f));
+    }
+
+    // Saturates to [0,1]; a negative (unset) value stays -1 to mean "use the state default".
+    private static float clampScrimAlphaSetting(float v) {
+        if (v < 0f) {
+            return -1f;
+        }
+        return Math.min(1f, v);
     }
 }
