@@ -18,12 +18,17 @@ package com.android.systemui.flashlight.ui.composable
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SliderDefaults
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import com.android.systemui.compose.modifiers.sysuiResTag
 import com.android.systemui.flashlight.ui.viewmodel.FlashlightSliderViewModel
+import java.text.NumberFormat
 
 @Composable
 fun FlashlightSliderContainer(viewModel: FlashlightSliderViewModel, modifier: Modifier = Modifier) {
@@ -49,6 +54,17 @@ fun FlashlightSliderContainer(viewModel: FlashlightSliderViewModel, modifier: Mo
                     activeTrackColor = MaterialTheme.colorScheme.primary,
                     inactiveTrackColor = MaterialTheme.colorScheme.onSurfaceVariant,
                 ),
+        )
+        Text(
+            text =
+                NumberFormat.getPercentInstance()
+                    .format(levelValue.toDouble() / currentState.max.coerceAtLeast(1)),
+            modifier =
+                Modifier.align(Alignment.CenterHorizontally)
+                    .padding(top = 8.dp)
+                    .sysuiResTag("flashlight_level_percent"),
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
 }
