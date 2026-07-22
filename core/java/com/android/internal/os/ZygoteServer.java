@@ -146,23 +146,12 @@ class ZygoteServer {
     /**
      * Initialize the Zygote server with the Zygote server socket, USAP pool server socket, and USAP
      * pool event FD.
-     *
-     * @param isPrimaryZygote  If this is the primary Zygote or not.
      */
-    ZygoteServer(boolean isPrimaryZygote) {
+    ZygoteServer(ZygoteType type) {
         mUsapPoolEventFD = Zygote.getUsapPoolEventFD();
 
-        if (isPrimaryZygote) {
-            mZygoteSocket = Zygote.createManagedSocketFromInitSocket(Zygote.PRIMARY_SOCKET_NAME);
-            mUsapPoolSocket =
-                    Zygote.createManagedSocketFromInitSocket(
-                            Zygote.USAP_POOL_PRIMARY_SOCKET_NAME);
-        } else {
-            mZygoteSocket = Zygote.createManagedSocketFromInitSocket(Zygote.SECONDARY_SOCKET_NAME);
-            mUsapPoolSocket =
-                    Zygote.createManagedSocketFromInitSocket(
-                            Zygote.USAP_POOL_SECONDARY_SOCKET_NAME);
-        }
+        mZygoteSocket = Zygote.createManagedSocketFromInitSocket(type.getSocketName());
+        mUsapPoolSocket = Zygote.createManagedSocketFromInitSocket(type.getUsapPoolSocketName());
 
         mUsapPoolSupported = true;
         fetchUsapPoolPolicyProps();
@@ -392,6 +381,10 @@ class ZygoteServer {
      * @param abiList list of ABIs supported by this zygote.
      */
     Runnable runSelectLoop(String abiList) {
+        if (ExecSpawning.isReplayingZygoteCommands()) {
+            return ExecSpawning.replayCommands(this);
+        }
+
         ArrayList<FileDescriptor> socketFDs = new ArrayList<>();
         ArrayList<ZygoteConnection> peers = new ArrayList<>();
 
@@ -518,7 +511,7 @@ class ZygoteServer {
                             boolean multipleForksOK = !isUsapPoolEnabled()
                                     && ZygoteHooks.isIndefiniteThreadSuspensionSafe();
                             final Runnable command =
-                                    connection.processCommand(this, multipleForksOK);
+                                    connection.processCommand(this, multipleForksOK, null);
 
                             // TODO (chriswailes): Is this extra check necessary?
                             if (mIsForkChild) {

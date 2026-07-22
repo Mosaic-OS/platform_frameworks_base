@@ -22,11 +22,13 @@ import android.os.ChildZygoteProcess;
 import android.os.Process;
 import android.os.UserHandle;
 import android.os.ZygoteProcess;
+import android.os.ZygoteSelectionMode;
 import android.text.TextUtils;
 import android.util.Log;
 
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.os.Zygote;
+import com.android.internal.os.ZygoteExtraArgs;
 
 /** @hide */
 public class WebViewZygote {
@@ -108,7 +110,7 @@ public class WebViewZygote {
                     sPackage.applicationInfo, null);
             final int[] sharedAppGid = {
                     UserHandle.getSharedAppGid(UserHandle.getAppId(sPackage.applicationInfo.uid)) };
-            sZygote = Process.ZYGOTE_PROCESS.startChildZygote(
+            sZygote = Process.ZYGOTE_PROCESS.startChildZygote(ZygoteExtraArgs.createForWebviewZygote(),
                     "com.android.internal.os.WebViewZygoteInit",
                     "webview_zygote",
                     Process.WEBVIEW_ZYGOTE_UID,
@@ -121,11 +123,10 @@ public class WebViewZygote {
                     null, // instructionSet
                     Process.FIRST_ISOLATED_UID,
                     Integer.MAX_VALUE,  // TODO(b/123615476) deal with user-id ranges properly
-                    sPackage.applicationInfo,
-                    null /* flatExtraArgs */);
+                    sPackage.applicationInfo);
             ZygoteProcess.waitForConnectionToZygote(
                     sZygote.getZygoteProcessAsManaged().getPrimarySocketAddress());
-            sZygote.getZygoteProcessAsManaged().preloadApp(sPackage.applicationInfo, abi);
+            sZygote.getZygoteProcessAsManaged().preloadApp(sPackage.applicationInfo, abi, ZygoteSelectionMode.Regular);
         } catch (Exception e) {
             Log.e(LOGTAG, "Error connecting to webview zygote", e);
             stopZygoteLocked();

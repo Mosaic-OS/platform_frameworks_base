@@ -11,6 +11,9 @@
     },
     {
       "name": "GosCompatWifiScanTimeoutTests"
+    },
+    {
+      "name": "GosCompatSecureSpawnTests"
     }
   ]
 }

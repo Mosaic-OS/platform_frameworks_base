@@ -1,15 +1,13 @@
 package android.app;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.GosPackageState;
 import android.content.pm.SrtPermissions;
+import android.content.res.AssetManager;
 import android.ext.dcl.DynCodeLoading;
 import android.location.HookedLocationManager;
 import android.os.Bundle;
 import android.os.Process;
-import android.os.RemoteException;
-import android.util.Log;
 
 import com.android.internal.app.ContactScopes;
 import com.android.internal.app.StorageScopesAppHooks;
@@ -23,7 +21,7 @@ class ActivityThreadHooks {
 
     // called after the initial app context is constructed
     // ActivityThread.handleBindApplication
-    static Bundle onBind(Context appContext, ActivityThread.AppBindData appBindData) {
+    static Bundle onBind(ActivityThread.AppBindData appBindData) {
         Bundle args = appBindData.extraArgs;
         Objects.requireNonNull(args, "args bundle is null");
 
@@ -32,7 +30,9 @@ class ActivityThreadHooks {
         }
         called = true;
 
-        AppGlobals.setInitialPackageId(appContext.getApplicationInfo().ext().getPackageId());
+        AssetManager.systemIdmapPaths_ = args.getStringArray(AppBindArgs.KEY_SYSTEM_IDMAP_PATHS);
+
+        AppGlobals.setInitialPackageId(appBindData.appInfo.ext().getPackageId());
 
         int[] flags = Objects.requireNonNull(args.getIntArray(AppBindArgs.KEY_FLAGS_ARRAY));
 

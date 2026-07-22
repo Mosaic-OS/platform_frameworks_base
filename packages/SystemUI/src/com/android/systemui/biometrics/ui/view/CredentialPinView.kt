@@ -55,6 +55,7 @@ fun CredentialPinView(
     onPinPress: () -> Unit,
     isVisible: Boolean,
     digitMap: IntArray,
+    isPinEnhancedPrivacyEnabled: Boolean,
     error: String = "",
 ) {
     var pinText by remember { mutableStateOf("") }
@@ -88,6 +89,7 @@ fun CredentialPinView(
                                 accessibilityManager = accessibilityManager,
                                 previousLength = pinText.length,
                                 addedDigit = digit,
+                                isPinEnhancedPrivacyEnabled = isPinEnhancedPrivacyEnabled,
                             )
                             pinText += digit
                         }
@@ -99,6 +101,7 @@ fun CredentialPinView(
                             view.notifyPinTextChanged(
                                 accessibilityManager = accessibilityManager,
                                 previousLength = pinText.length,
+                                isPinEnhancedPrivacyEnabled = isPinEnhancedPrivacyEnabled,
                             )
                             pinText = pinText.dropLast(1)
                         }
@@ -134,6 +137,7 @@ fun CredentialPinView(
                         accessibilityManager = accessibilityManager,
                         previousLength = pinText.length,
                         addedDigit = digit,
+                        isPinEnhancedPrivacyEnabled = isPinEnhancedPrivacyEnabled,
                     )
                     pinText += digit
                     onPinPress()
@@ -144,6 +148,7 @@ fun CredentialPinView(
                     view.notifyPinTextChanged(
                         accessibilityManager = accessibilityManager,
                         previousLength = pinText.length,
+                        isPinEnhancedPrivacyEnabled = isPinEnhancedPrivacyEnabled,
                     )
                     pinText = pinText.dropLast(1)
                     onPinPress()
@@ -164,7 +169,8 @@ fun CredentialPinView(
             },
             isInputEnabled = isVisible,
             deleteButtonAppearance = ActionButtonAppearance.Shown,
-            digitMap,
+            digitMap = digitMap,
+            isDigitButtonAnimationEnabled = !isPinEnhancedPrivacyEnabled,
         )
     }
 }
@@ -192,6 +198,7 @@ private const val PIN_BULLET = "\u2022"
 private fun View.notifyPinTextChanged(
     accessibilityManager: AccessibilityManager,
     previousLength: Int,
+    isPinEnhancedPrivacyEnabled: Boolean,
     addedDigit: String? = null,
 ) {
     val isDeletion = addedDigit == null
@@ -206,7 +213,8 @@ private fun View.notifyPinTextChanged(
             beforeText = bulletString
 
             if (addedDigit != null) {
-                text.add(bulletString + addedDigit)
+                val newText = if (isPinEnhancedPrivacyEnabled) PIN_BULLET else addedDigit
+                text.add(bulletString + newText)
                 addedCount = 1
                 removedCount = 0
                 fromIndex = previousLength

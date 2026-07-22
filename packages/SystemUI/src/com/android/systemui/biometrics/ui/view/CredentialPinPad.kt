@@ -52,6 +52,7 @@ fun CredentialPinPad(
     isInputEnabled: Boolean,
     deleteButtonAppearance: ActionButtonAppearance,
     digitMap: IntArray,
+    isDigitButtonAnimationEnabled: Boolean,
     verticalSpacing: Dp = 8.dp,
     horizontalSpacing: Dp = 14.dp,
 ) {
@@ -73,7 +74,7 @@ fun CredentialPinPad(
                                     onClicked = { onDigitClick(digit.toString()) },
                                     onPointerDown = {}, // Hook up haptics here if needed
                                     scaling = { 1f },
-                                    isAnimationEnabled = true,
+                                    isAnimationEnabled = isDigitButtonAnimationEnabled,
                                     backgroundColor =
                                         MaterialTheme.colorScheme.surfaceContainerHighest,
                                 )
@@ -109,7 +110,7 @@ fun CredentialPinPad(
                             onClicked = { onDigitClick(zeroDigit.toString()) },
                             onPointerDown = {},
                             scaling = { 1f },
-                            isAnimationEnabled = true,
+                            isAnimationEnabled = isDigitButtonAnimationEnabled,
                             backgroundColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         )
 

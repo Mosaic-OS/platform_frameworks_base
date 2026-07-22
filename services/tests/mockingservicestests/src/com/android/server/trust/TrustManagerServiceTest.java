@@ -94,6 +94,7 @@ import android.view.WindowManagerGlobal;
 import androidx.test.core.app.ApplicationProvider;
 
 import com.android.internal.infra.AndroidFuture;
+import com.android.internal.widget.LockDomain;
 import com.android.internal.widget.LockPatternUtils;
 import com.android.internal.widget.LockPatternUtils.StrongAuthTracker;
 import com.android.internal.widget.LockPatternUtils.StrongAuthTracker.StrongAuthFlags;
@@ -747,7 +748,7 @@ public class TrustManagerServiceTest {
                     ArgumentCaptor.forClass(LockSettingsStateListener.class);
             verify(mLockSettingsInternal).registerLockSettingsStateListener(captor.capture());
             LockSettingsStateListener listener = captor.getValue();
-            listener.onAuthenticationSucceeded(userId);
+            listener.onAuthenticationSucceeded(userId, LockDomain.Primary);
         } else {
             mTrustManager.reportUnlockAttempt(/* successful= */ true, userId);
         }
@@ -759,7 +760,7 @@ public class TrustManagerServiceTest {
                     ArgumentCaptor.forClass(LockSettingsStateListener.class);
             verify(mLockSettingsInternal).registerLockSettingsStateListener(captor.capture());
             LockSettingsStateListener listener = captor.getValue();
-            listener.onAuthenticationFailed(userId);
+            listener.onAuthenticationFailed(userId, LockDomain.Primary);
         } else {
             mTrustManager.reportUnlockAttempt(/* successful= */ false, userId);
         }

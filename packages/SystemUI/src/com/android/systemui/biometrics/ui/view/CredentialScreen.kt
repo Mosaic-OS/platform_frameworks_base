@@ -54,6 +54,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.compose.theme.PlatformTheme
+import com.android.internal.widget.LockPatternUtils
 import com.android.internal.widget.LockPatternView
 import com.android.systemui.biometrics.domain.interactor.BiometricPromptView
 import com.android.systemui.biometrics.domain.model.BiometricOperationInfo
@@ -170,7 +171,7 @@ fun CredentialScreen(
                         PromptKind.Pin -> {
                             val context = androidx.compose.ui.platform.LocalContext.current
 
-                            val userId = header.user.userId
+                            val userId = header.user.deviceCredentialOwnerId
                             val digitMap = androidx.compose.runtime.remember(userId) {
                                 val arr = IntArray(10) { i -> i }
                                 val setting = android.ext.settings.ExtSettings.SCRAMBLE_LOCKSCREEN_PIN_LAYOUT_PRIMARY
@@ -179,12 +180,17 @@ fun CredentialScreen(
                                 }
                                 arr
                             }
+                            val isPinEnhancedPrivacyEnabled =
+                                androidx.compose.runtime.remember(userId) {
+                                    LockPatternUtils(context).isPinEnhancedPrivacyEnabled(userId)
+                                }
                             CredentialPinView(
                                 onVerify = verifyPinPassAction,
                                 onSuccess = { credential -> handleSuccess(credential) },
                                 onPinPress = viewModel::performPinPressFeedback,
                                 isVisible = currentView == BiometricPromptView.CREDENTIAL,
                                 digitMap = digitMap,
+                                isPinEnhancedPrivacyEnabled = isPinEnhancedPrivacyEnabled,
                                 error = errorMessage,
                             )
                         }

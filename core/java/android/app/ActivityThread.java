@@ -8020,6 +8020,8 @@ public final class ActivityThread extends ClientTransactionHandler
     @UnsupportedAppUsage
     @RavenwoodThrow(comment = "See ActivityThread_ravenwood for initialization on Ravenwood")
     private void handleBindApplication(AppBindData data) {
+        final Bundle extraAppBindArgs = ActivityThreadHooks.onBind(data);
+
         mDdmSyncStageUpdater.next(Stage.Bind);
 
         // Register the UI Thread as a sensitive thread to the runtime.
@@ -8218,7 +8220,6 @@ public final class ActivityThread extends ClientTransactionHandler
         final IActivityManager mgr = ActivityManager.getService();
         final ContextImpl appContext = ContextImpl.createAppContext(this, data.info);
         mConfigurationController.updateLocaleListFromAppContext(appContext);
-        final Bundle extraAppBindArgs = ActivityThreadHooks.onBind(appContext, data);
 
         // Initialize the default http proxy in this process.
         Trace.traceBegin(Trace.TRACE_TAG_ACTIVITY_MANAGER, "Setup proxies");
@@ -8288,6 +8289,8 @@ public final class ActivityThread extends ClientTransactionHandler
         }
 
         ActivityThreadHooks.onBind2(appContext, extraAppBindArgs);
+
+        com.android.internal.os.ExecSpawning.maybeRunPendingZygotePreload(data.appInfo);
 
         // Allow disk access during application and provider setup. This could
         // block processing ordered broadcasts, but later processing would
