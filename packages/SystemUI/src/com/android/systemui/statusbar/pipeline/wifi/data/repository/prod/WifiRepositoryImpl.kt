@@ -62,6 +62,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asExecutor
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -69,9 +70,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -316,7 +322,48 @@ constructor(
     private val _wifiToggleState = MutableStateFlow<WifiToggleState>(WifiToggleState.Normal)
     override val wifiToggleState: StateFlow<WifiToggleState> = _wifiToggleState.asStateFlow()
 
-    override val isWifiEnabled: StateFlow<Boolean> =
+    // Updated optimistically on toggle requests so rapid taps act on the requested state
+    // instead of the slower WifiPickerTracker callbacks.
+    private val _isWifiEnabled = MutableStateFlow(false)
+    override val isWifiEnabled: StateFlow<Boolean> = _isWifiEnabled.asStateFlow()
+
+    // Runs blocking WifiManager calls off the tile handler thread; conflation applies only the
+    // latest request when taps outpace the Wi-Fi stack.
+    private val wifiToggleRequests = MutableStateFlow<Boolean?>(null)
+
+    // While non-null, WifiPickerTracker confirmations that contradict the requested state are
+    // stale and must not overwrite the optimistic value.
+    @Volatile private var pendingToggleRequest: Boolean? = null
+    private var pendingToggleResetJob: Job? = null
+    @Volatile private var lastConfirmedWifiEnabled = false
+
+    private fun requestWifiToggle(enabled: Boolean) {
+        pendingToggleRequest = enabled
+        pendingToggleResetJob?.cancel()
+        pendingToggleResetJob =
+            scope.launch {
+                // Resync with the real state if the request never gets confirmed.
+                delay(PENDING_TOGGLE_TIMEOUT_MS)
+                pendingToggleRequest = null
+                _isWifiEnabled.value = lastConfirmedWifiEnabled
+            }
+        _isWifiEnabled.value = enabled
+        wifiToggleRequests.value = enabled
+    }
+
+    init {
+        scope.launch(bgDispatcher) {
+            wifiToggleRequests.filterNotNull().collect { enabled ->
+                wifiManager.setWifiEnabled(enabled)
+                if (enabled) {
+                    wifiManager.stopRestrictingAutoJoinToSubscriptionId()
+                    wifiManager.startScan()
+                }
+            }
+        }
+    }
+
+    init {
         wifiPickerTrackerInfo
             .map { it.state == WifiManager.WIFI_STATE_ENABLED }
             .distinctUntilChanged()
@@ -329,7 +376,17 @@ constructor(
                 }
             }
             .logDiffsForTable(tableLogger, columnName = COL_NAME_IS_ENABLED, initialValue = false)
-            .stateIn(scope, SharingStarted.Eagerly, false)
+            .onEach { confirmed ->
+                lastConfirmedWifiEnabled = confirmed
+                val pending = pendingToggleRequest
+                if (pending == null || pending == confirmed) {
+                    pendingToggleRequest = null
+                    pendingToggleResetJob?.cancel()
+                    _isWifiEnabled.value = confirmed
+                }
+            }
+            .launchIn(scope)
+    }
 
     override val wifiNetwork: StateFlow<WifiNetworkModel> =
         wifiPickerTrackerInfo
@@ -471,9 +528,11 @@ constructor(
 
     override fun pauseWifi() {
         cancelOptimisticToggleTimeoutJobs()
-        wifiManager.startRestrictingAutoJoinToSubscriptionId(
-            SubscriptionManager.getDefaultDataSubscriptionId()
-        )
+        scope.launch(bgDispatcher) {
+            wifiManager.startRestrictingAutoJoinToSubscriptionId(
+                SubscriptionManager.getDefaultDataSubscriptionId()
+            )
+        }
         pauseWifiTimeoutJob =
             scope.launch {
                 withTimeoutOrNull(WIFI_TOGGLE_OPTIMISTIC_PAUSE_TIMEOUT_MS) {
@@ -485,29 +544,44 @@ constructor(
             }
     }
 
-    override fun scanForWifi() {
+    private fun startScanningUiState() {
         cancelOptimisticToggleTimeoutJobs()
         _wifiToggleState.value = WifiToggleState.Scanning
-        wifiManager.stopRestrictingAutoJoinToSubscriptionId()
-        wifiManager.startScan()
         scanForWifiTimeoutJob =
             scope.launch {
                 withTimeoutOrNull(WIFI_TOGGLE_OPTIMISTIC_SCANNING_TIMEOUT_MS) {
-                    // Wait until wifi is connected and default
-                    connectivityRepository.defaultConnections.first { it.isWifiDefault() }
+                    // Wait for a fresh connection signal; current values may be stale right
+                    // after a quick off/on toggle.
+                    merge(
+                            connectivityRepository.defaultConnections.drop(1).filter {
+                                it.isWifiDefault()
+                            },
+                            wifiNetwork.drop(1).filter { it is WifiNetworkModel.Active },
+                        )
+                        .first()
                 }
                 // Toggle is back to Normal
                 _wifiToggleState.value = WifiToggleState.Normal
             }
     }
 
+    override fun scanForWifi() {
+        startScanningUiState()
+        scope.launch(bgDispatcher) {
+            wifiManager.stopRestrictingAutoJoinToSubscriptionId()
+            wifiManager.startScan()
+        }
+    }
+
     override fun enableWifi() {
-        wifiManager.setWifiEnabled(true)
-        scanForWifi()
+        startScanningUiState()
+        requestWifiToggle(true)
     }
 
     override fun disableWifi() {
-        wifiManager.setWifiEnabled(false)
+        cancelOptimisticToggleTimeoutJobs()
+        _wifiToggleState.value = WifiToggleState.Normal
+        requestWifiToggle(false)
     }
 
     private fun logOnWifiEntriesChanged(connectedEntry: WifiEntry?) {
@@ -609,5 +683,7 @@ constructor(
 
         @VisibleForTesting const val WIFI_TOGGLE_OPTIMISTIC_PAUSE_TIMEOUT_MS = 10_000L
         @VisibleForTesting const val WIFI_TOGGLE_OPTIMISTIC_SCANNING_TIMEOUT_MS = 10_000L
+
+        private const val PENDING_TOGGLE_TIMEOUT_MS = 10_000L
     }
 }
