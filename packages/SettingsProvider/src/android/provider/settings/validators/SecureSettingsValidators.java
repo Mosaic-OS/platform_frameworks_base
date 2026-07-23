@@ -183,6 +183,14 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.NIGHT_DISPLAY_COLOR_TEMPERATURE, NON_NEGATIVE_INTEGER_VALIDATOR);
         VALIDATORS.put(Secure.NIGHT_DISPLAY_AUTO_MODE, new InclusiveIntegerRangeValidator(0, 2));
         VALIDATORS.put(Secure.DISPLAY_WHITE_BALANCE_ENABLED, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_RED,
+                new InclusiveIntegerRangeValidator(0, 255));
+        VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_GREEN,
+                new InclusiveIntegerRangeValidator(0, 255));
+        VALIDATORS.put(Secure.DISPLAY_COLOR_BALANCE_BLUE,
+                new InclusiveIntegerRangeValidator(0, 255));
+        VALIDATORS.put(Secure.DISPLAY_WHITE_BALANCE_TEMPERATURE,
+                new InclusiveIntegerRangeValidator(50, 1000));
         VALIDATORS.put(Secure.SYNC_PARENT_SOUNDS, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.CAMERA_DOUBLE_TWIST_TO_FLIP_ENABLED, BOOLEAN_VALIDATOR);
         VALIDATORS.put(Secure.DOUBLE_TAP_POWER_BUTTON_GESTURE_ENABLED, BOOLEAN_VALIDATOR);

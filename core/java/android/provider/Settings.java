@@ -6366,7 +6366,6 @@ public final class Settings {
         @Readable
         public static final String ACCELEROMETER_ROTATION = "accelerometer_rotation";
 
-
         /**
          * Control the type of rotation which can be performed using the accelerometer
          * if ACCELEROMETER_ROTATION is enabled.
@@ -6379,6 +6378,7 @@ public final class Settings {
          * @hide
          */
         public static final String ACCELEROMETER_ROTATION_ANGLES = "accelerometer_rotation_angles";
+
 	/**
          * Default screen rotation when no other policy applies.
          * When {@link #ACCELEROMETER_ROTATION} is zero and no on-screen Activity expresses a
@@ -7663,6 +7663,7 @@ public final class Settings {
          * @hide
          */
         public static final String PILL_HEIGHT_MODE = "pill_height_mode";
+
         // ExtSettings END
 
         // NOTE: If you add new settings here, be sure to add them to
@@ -12814,6 +12815,31 @@ public final class Settings {
         @Readable
         public static final String NIGHT_DISPLAY_LAST_ACTIVATED_TIME =
                 "night_display_last_activated_time";
+
+        /**
+         * Display color balance for the red channel, from 0 to 255.
+         * @hide
+         */
+        public static final String DISPLAY_COLOR_BALANCE_RED = "display_color_balance_red";
+
+        /**
+         * Display color balance for the green channel, from 0 to 255.
+         * @hide
+         */
+        public static final String DISPLAY_COLOR_BALANCE_GREEN = "display_color_balance_green";
+
+        /**
+         * Display color balance for the blue channel, from 0 to 255.
+         * @hide
+         */
+        public static final String DISPLAY_COLOR_BALANCE_BLUE = "display_color_balance_blue";
+
+        /**
+         * Manual display white balance temperature, in mireds.
+         * @hide
+         */
+        public static final String DISPLAY_WHITE_BALANCE_TEMPERATURE =
+                "display_white_balance_temperature";
 
         /**
          * Control whether display white balance is currently enabled.

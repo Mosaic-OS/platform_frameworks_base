@@ -57,6 +57,10 @@ interface IColorDisplayManager {
     @EnforcePermission("CONTROL_DISPLAY_COLOR_TRANSFORMS")
     boolean setDisplayWhiteBalanceEnabled(boolean enabled);
 
+    int getColorBalanceChannel(int channel);
+    @EnforcePermission("CONTROL_DISPLAY_COLOR_TRANSFORMS")
+    boolean setColorBalanceChannel(int channel, int value);
+
     boolean isReduceBrightColorsActivated();
     @EnforcePermission("CONTROL_DISPLAY_COLOR_TRANSFORMS")
     boolean setReduceBrightColorsActivated(boolean activated);
