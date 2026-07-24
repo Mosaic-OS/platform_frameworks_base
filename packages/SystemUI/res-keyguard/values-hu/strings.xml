@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- 
+<!--
 /* //device/apps/common/assets/res/any/strings.xml
 **
 ** Copyright 2006, The Android Open Source Project
@@ -22,6 +22,7 @@
     xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <string name="keyguard_enter_your_pin" msgid="5429932527814874032">"Adja meg PIN-kódját"</string>
     <string name="keyguard_enter_pin" msgid="8114529922480276834">"Adja meg a PIN-kódot"</string>
+    <string name="keyguard_enter_biometric_second_factor_pin">Adja meg a másodfokú PIN-kódot</string>
     <string name="keyguard_enter_your_pattern" msgid="351503370332324745">"Adja meg a mintáját"</string>
     <string name="keyguard_enter_pattern" msgid="7616595160901084119">"Rajzolja le a mintát"</string>
     <string name="keyguard_enter_your_password" msgid="7225626204122735501">"Adja meg jelszavát"</string>
@@ -57,6 +58,7 @@
     <string name="kg_wrong_password_try_again" msgid="6602878676125765920">"Hibás jelszó. Próbálja újra."</string>
     <string name="kg_wrong_pin" msgid="4160978845968732624">"Helytelen PIN-kód"</string>
     <string name="kg_wrong_pin_try_again" msgid="3129729383303430190">"Hibás PIN. Próbálja újra."</string>
+    <string name="kg_wrong_biometric_second_factor_pin_try_again">Hibás másodfokú PIN-kód. Próbálja újra.</string>
     <string name="kg_wrong_input_try_fp_suggestion" msgid="3143861542242024833">"Vagy feloldás ujjlenyomattal"</string>
     <string name="kg_fp_not_recognized" msgid="5183108260932029241">"Ismeretlen ujjlenyomat"</string>
     <string name="bouncer_face_not_recognized" msgid="1666128054475597485">"Sikertelen arcfelismerés"</string>
@@ -86,6 +88,7 @@
     <string name="kg_fp_locked_out" msgid="6228277682396768830">"Sikertelen feloldás ujjlenyomattal. Túl sok kísérlet."</string>
     <string name="kg_trust_agent_disabled" msgid="5400691179958727891">"A trust agent komponens nem áll rendelkezésre"</string>
     <string name="kg_primary_auth_locked_out_pin" msgid="5492230176361601475">"Túl sok próbálkozás helytelen PIN-kóddal"</string>
+    <string name="kg_primary_auth_locked_out_biometric_second_factor_pin">Túl sok próbálkozás helytelen másodfokú PIN-kóddal</string>
     <string name="kg_primary_auth_duplicate_guess_pin" msgid="5834891656916692329">"Ezt a PIN-kódot már próbálta. Próbálkozzon másikkal."</string>
     <string name="kg_primary_auth_duplicate_guess_pattern" msgid="3827593245962385968">"Ezt a mintát már próbálta. Próbálkozzon egy másikkal."</string>
     <string name="kg_primary_auth_duplicate_guess_password" msgid="3153406042812407458">"Ezt a jelszót már próbálta. Próbálkozzon egy másikkal."</string>
@@ -111,6 +114,7 @@
     <string name="kg_invalid_sim_pin_hint" msgid="2762202646949552978">"Írjon be egy 4-8 számjegyű PIN-kódot."</string>
     <string name="kg_invalid_sim_puk_hint" msgid="5319756880543857694">"A PUK-kódnak legalább nyolc számjegyből kell állnia."</string>
     <string name="kg_too_many_failed_pin_attempts_dialog_message" msgid="544687656831558971">"<xliff:g id="NUMBER_0">%1$d</xliff:g> alkalommal helytelenül adta meg a PIN-kódot.\n\nPróbálja újra <xliff:g id="NUMBER_1">%2$d</xliff:g> másodperc múlva."</string>
+    <string name="kg_too_many_failed_biometric_second_factor_pin_attempts_dialog_message">"         Hibásan adta meg a másodfokú PIN-kódot <xliff:g id="number">%1$d</xliff:g> alkalommal.           Most elsődleges hitelesítést kell használni.     "</string>
     <string name="kg_too_many_failed_password_attempts_dialog_message" msgid="190984061975729494">"<xliff:g id="NUMBER_0">%1$d</xliff:g> alkalommal helytelenül adta meg a jelszót.\n\nPróbálja újra <xliff:g id="NUMBER_1">%2$d</xliff:g> másodperc múlva."</string>
     <string name="kg_too_many_failed_pattern_attempts_dialog_message" msgid="4252405904570284368">"<xliff:g id="NUMBER_0">%1$d</xliff:g> alkalommal rosszul rajzolta le a feloldási mintát.\n\nPróbálja újra <xliff:g id="NUMBER_1">%2$d</xliff:g> másodperc múlva."</string>
     <string name="kg_password_wrong_pin_code_pukked" msgid="8047350661459040581">"Helytelen PIN-kód a SIM-kártyához. Az eszköz feloldása érdekében, kérjük, vegye fel a kapcsolatot szolgáltatójával."</string>
@@ -149,4 +153,6 @@
     <string name="kg_prompt_after_update_pin" msgid="7051709651908643013">"Eszköz frissítve. A folytatáshoz adja meg a PIN-kódot."</string>
     <string name="kg_prompt_after_update_password" msgid="153703052501352094">"Eszköz frissítve. A folytatáshoz adja meg a jelszót."</string>
     <string name="kg_prompt_after_update_pattern" msgid="1484084551298241992">"Eszköz frissítve. A folytatáshoz rajzolja le a mintát."</string>
+    <string name="keyguard_enter_your_biometric_second_factor_pin">Adja meg másodfokú PIN-kódját</string>
+    <string name="kg_wrong_biometric_second_factor_pin">Hibás másodfokú PIN-kód</string>
 </resources>

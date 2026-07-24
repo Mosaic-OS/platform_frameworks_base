@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="bluetooth_auto_off_attribution_label">Bluetooth automatikus kikapcsolása</string>
+    <string name="bg_dexopt_notif_ch_title">Alkalmazások optimalizálása</string>
+    <string name="bg_dexopt_notif_title">Alkalmazások optimalizálása (%2$d / %1$d)</string>
+    <string name="bg_dexopt_notif_text">Az eszköz teljesítménye lassabb lehet, amíg az alkalmazásoptimalizálás be nem fejeződik</string>
+    <string name="bg_dexopt_completed_notif_ch_title">Az alkalmazásoptimalizálás befejeződött</string>
+    <string name="bg_dexopt_completed_notif_title">Az alkalmazás újraindítása szükséges</string>
+    <string name="bg_dexopt_completed_notif_text">Az alkalmazásoptimalizálás befejeződött. Koppintson az optimalizált alkalmazások újraindításához.</string>
+    <string name="notif_channel_exploit_protection">Kihasználás elleni védelem</string>
+    <string name="notif_text_tap_to_open_settings">Érintse meg a beállítások megnyitásához</string>
+    <string name="notif_text_tap_to_see_details">Koppintson a részletek megtekintéséhez</string>
+    <string name="notif_action_more_info">További információ</string>
+    <string name="notif_native_debug_title">%1$s natív kódhibakeresést próbált használni</string>
+    <string name="notif_ch_system_journal">Rendszernapló</string>
+    <string name="process_crash_notif_title">%1$s összeomlott</string>
+    <string name="fsck_error_notif_title">Fájlrendszerhiba észlelve</string>
+    <string name="notif_memtag_crash_title">A memóriacímkézés hibát észlelt a(z) %1$s fájlban.</string>
+    <string name="notif_hmalloc_crash_title">A hardened_malloc hibát észlelt a következőben: %1$s</string>
+    <string name="notif_memory_dcl_title">%1$s megpróbált DCL-t végrehajtani memórián keresztül</string>
+    <string name="notif_storage_dcl_title">%1$s megpróbált DCL-t végrehajtani tárhelyen keresztül</string>
+    <string name="usb_port_security_error_title">Az USB-C port biztonsági funkciója meghibásodott</string>
+</resources>

@@ -142,6 +142,7 @@
   </string-array>
     <!-- no translation found for wfcSpnFormat_spn (2982505428519096311) -->
     <skip />
+	<string name="wfcSpnFormat_spn"><xliff:g id="spn" example="Operátor">%s</xliff:g></string>
     <string name="wfcSpnFormat_spn_wifi_calling" msgid="3165949348000906194">"<xliff:g id="SPN">%s</xliff:g> Wi-Fi-hívás"</string>
     <string name="wfcSpnFormat_spn_wifi_calling_vo_hyphen" msgid="3836827895369365298">"<xliff:g id="SPN">%s</xliff:g> Wi‑Fi-hívás"</string>
     <string name="wfcSpnFormat_wlan_call" msgid="4895315549916165700">"WLAN-hívás"</string>
@@ -164,6 +165,7 @@
     <string name="elapsed_time_low_frequency_short_format_mm" msgid="2405181895215514414">"%1$02d:--"</string>
     <!-- no translation found for crossSimFormat_spn (9125246077491634262) -->
     <skip />
+	<string name="crossSimFormat_spn"><xliff:g id="spn" example="Operátor">%s</xliff:g></string>
     <string name="crossSimFormat_spn_cross_sim_calling" msgid="5620807020002879057">"<xliff:g id="SPN">%s</xliff:g> másodlagos hívási lehetőség"</string>
     <string name="cfTemplateNotForwarded" msgid="862202427794270501">"<xliff:g id="BEARER_SERVICE_CODE">{0}</xliff:g>: nincs átirányítva"</string>
     <string name="cfTemplateForwarded" msgid="9132506315842157860">"<xliff:g id="BEARER_SERVICE_CODE">{0}</xliff:g>: <xliff:g id="DIALING_NUMBER">{1}</xliff:g>"</string>
@@ -378,6 +380,7 @@
     <string name="permgroupdesc_xr_tracking" msgid="812429788288001595">"szem, arc és test nyomon követése, valamint a környezet felmérése"</string>
     <string name="permgrouplab_xr_tracking_sensitive" msgid="6574264227123545314">"Pontos mozgási és környezetadatok"</string>
     <string name="permgroupdesc_xr_tracking_sensitive" msgid="2480835734248509848">"terület pontos felmérése és fej nyomon követése"</string>
+	<string name="permgroupdesc_network">hálózati hozzáférés</string>
     <string name="capability_title_canRetrieveWindowContent" msgid="7554282892101587296">"Ablaktartalom lekérdezése"</string>
     <string name="capability_desc_canRetrieveWindowContent" msgid="6195610527625237661">"A használt ablak tartalmának vizsgálata."</string>
     <string name="capability_title_canRequestTouchExploration" msgid="327598364696316213">"Felfedezés érintéssel bekapcsolása"</string>
@@ -520,6 +523,7 @@
     <string name="permdesc_bodySensors" product="default" msgid="7652650410295512140">"Lehetővé teszi, hogy az alkalmazás hozzáférjen a testérzékelők adataihoz (pl. pulzusszám, testhőmérséklet és véroxigénszint), miközben az alkalmazás használatban van."</string>
     <string name="permlab_bodySensors_background" msgid="4912560779957760446">"Hozzáférés a testérzékelők adataihoz (pl. pulzusszám) a háttérben"</string>
     <string name="permdesc_bodySensors_background" product="default" msgid="8870726027557749417">"Lehetővé teszi, hogy az alkalmazás hozzáférjen a testérzékelők adataihoz (pl. pulzusszám, testhőmérséklet és véroxigénszint), miközben az alkalmazás a háttérben van."</string>
+	<string name="permdesc_otherSensors">Lehetővé teszi az alkalmazás számára, hogy hozzáférjen a tájolást, mozgást, rezgést (beleértve az alacsony frekvenciájú hangokat) és környezeti adatokat figyelő érzékelők adataihoz.</string>
     <string name="permlab_readCalendar" msgid="6408654259475396200">"Naptáresemények és a naptári adatok olvasása"</string>
     <string name="permdesc_readCalendar" product="tablet" msgid="515452384059803326">"Az alkalmazás olvashatja a táblagépen tárolt összes naptáreseményt, és megoszthatja vagy mentheti a naptáradatokat."</string>
     <string name="permdesc_readCalendar" product="tv" msgid="5811726712981647628">"Az alkalmazás olvashatja az Android TV eszközön tárolt összes naptáreseményt, és megoszthatja vagy mentheti a naptáradatokat."</string>
@@ -1521,6 +1525,7 @@
     <string name="console_running_notification_message" msgid="7892751888125174039">"Ez hatással van a teljesítményre. A letiltáshoz ellenőrizze a rendszerindítót."</string>
     <string name="mte_override_notification_title" msgid="4731115381962792944">"Kísérleti MTE engedélyezve"</string>
     <string name="mte_override_notification_message" msgid="2441170442725738942">"Ez hatással lehet a teljesítményre és a stabilitásra. A letiltáshoz indítsa újra az eszközt. Ha az arm64.memtag.bootctl használatával engedélyezte, előbb állítsa „none” értékre."</string>
+	<string name="prototype_device_notification_message">Az eszköz biztonsága érintett lehet.</string>
     <string name="usb_contaminant_detected_title" msgid="4359048603069159678">"Folyadék vagy szennyeződés az USB-portban"</string>
     <string name="usb_contaminant_detected_message" msgid="7346100585390795743">"USB-port automatikusan letiltva. Koppintson, ha további információra van szüksége."</string>
     <string name="usb_contaminant_not_detected_title" msgid="2651167729563264053">"Az USB-port rendben használható"</string>
@@ -2718,4 +2723,19 @@
     <string name="do_not_disturb_sync_notification_channel_name" msgid="8652220979613037381">"Ne zavarjanak mód szinkronizálása"</string>
     <string name="do_not_disturb_sync_notification_title" msgid="6732475150089465528">"Ne zavarjanak"</string>
     <string name="do_not_disturb_sync_notification_content" msgid="2755604717509797896">"Szinkronizálva a közeli eszközéről"</string>
+	<string name="aerr_show_details">Részletek</string>
+	<string name="permgrouplab_otherSensors">Szenzorok</string>
+    <string name="permgroupdesc_otherSensors">hozzáférhet az érzékelők adataihoz a tájolásról, mozgásról stb.</string>
+    <string name="permgrouplab_network">Hálózat</string>
+    <string name="permlab_otherSensors">hozzáférés szenzorokhoz (például iránytű)</string>
+    <string name="prototype_device_notification_title">Az eszköz egy mérnöki prototípus</string>
+    <string name="notification_channel_other_users">Más felhasználók</string>
+    <string name="notification_channel_other_users_description">Cenzúrázott értesítések más felhasználók zárolási képernyőiről</string>
+    <string name="other_users_notification_title">Értesítés: <xliff:g id="app_name" example="Messages">%1$s</xliff:g> for <xliff:g id="username" example="Alice">%2$s</xliff:g></string>
+    <string name="other_users_notification_switch_user_action">Váltás erre a felhasználóra: <xliff:g id="username" example="Bob">%1$s</xliff:g></string>
+    <string name="notification_action_dont_show_again">Ne mutassa újra</string>
+    <string name="notification_channel_missing_permission">Hiányzó engedély</string>
+    <string name="missing_sensors_permission_title">%1$s megpróbált hozzáférni az érzékelőkhöz</string>
+    <string name="missing_sensors_permission_message">Koppintson az engedély kéréséhez.</string>
+    <string name="deprecated_abi_message_grapheneos">Ez az alkalmazás csak a 32 bites rendszereket támogatja, ezért nem kompatibilis az újabb eszközökkel. Ha az alkalmazás még fejlesztés alatt áll, váltson modern eszközökhöz készült verzióra. A MosaicOS a biztonság javítása érdekében tervezi a 32 bites alkalmazások támogatásának fokozatos megszüntetését a régebbi eszközökön.</string>
 </resources>

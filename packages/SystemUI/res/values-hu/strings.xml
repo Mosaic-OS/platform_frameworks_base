@@ -939,6 +939,7 @@
     <string name="status_bar_airplane" msgid="4848702508684541009">"Repülős üzemmód"</string>
     <string name="status_bar_supervision" msgid="6735015942701134125">"Szülői felügyelet"</string>
     <string name="status_bar_pin_supervision" msgid="4376576498566645782">"Egyes eszközvezérlők PIN-kódos védelme"</string>
+	  <string name="zen_alarm_warning_indef">A következő ébresztést <xliff:g id="when" example="at 7:00 AM">%1$s</xliff:g> nem fogja hallani, hacsak addig nem kapcsolja ki.</string>
     <string name="zen_alarm_warning" msgid="7844303238486849503">"Nem fogja hallani az ébresztést ekkor: <xliff:g id="WHEN">%1$s</xliff:g>"</string>
     <string name="alarm_template" msgid="2234991538018805736">"ekkor: <xliff:g id="WHEN">%1$s</xliff:g>"</string>
     <string name="alarm_template_far" msgid="3561752195856839456">"ezen a napon: <xliff:g id="WHEN">%1$s</xliff:g>"</string>
@@ -1044,6 +1045,7 @@
     <string name="snoozeMinuteOptions" msgid="2222082405822030979">"{count,plural, =1{# perc}other{# perc}}"</string>
     <string name="notification_promoted_ongoing_long_click" msgid="7199288520206554592">"a Lefokozás menü megnyitásához"</string>
     <string name="battery_detail_switch_title" msgid="6940976502957380405">"Akkumulátorkímélő mód"</string>
+	  <string name="battery_share_switch_title">Akkumulátor megosztás</string>
     <string name="keyboard_key_button_template" msgid="8005673627272051429">"<xliff:g id="NAME">%1$s</xliff:g> gomb"</string>
     <string name="keyboard_key_home" msgid="3734400625170020657">"Kezdőképernyő"</string>
     <string name="keyboard_key_back" msgid="4185420465469481999">"Vissza"</string>
@@ -1893,4 +1895,20 @@
     <string name="ace_attribution_settings_button_accessibility_description" msgid="8426163772933746374">"Beállítások gomb"</string>
     <string name="ace_attribution_thumbs_up_button_accessibility_description" msgid="3561722934830934360">"„Tetszik” visszajelzés gombja"</string>
     <string name="ace_attribution_thumbs_down_button_accessibility_description" msgid="5471283747650437662">"„Nem tetszik” visszajelzés gombja"</string>
+	  <string name="qs_data_switch_label">Adatkártya váltása</string>
+    <string name="qs_data_switch_toast_0">Jelenleg nincs használatban SIM-kártya</string>
+    <string name="qs_data_switch_toast_1">Jelenleg csak egy SIM-kártya van használatban</string>
+    <string name="qs_data_switch_changed_1">Adatkártya váltása a SIM 1-re.</string>
+    <string name="qs_data_switch_changed_2">Adatkártya váltása a SIM 2-re.</string>
+    <string name="qs_data_switch_text_1">SIM 1</string>
+    <string name="qs_data_switch_text_2">SIM 2</string>
+	  <string name="clipboard_share_title">Vágólap megosztás</string>
+    <string name="clipboard_share_success">Vágólap elküldve</string>
+    <string name="clipboard_share_error">Az küldés nem sikerült</string>
+    <string name="clipboard_share_empty">Üres vágólap</string>
+    <string name="clipboard_share_no_users">Nincs más felhasználó</string>
+    <string name="clipboard_share_not_running">Nem fut</string>
+    <string name="clipboard_share_start_button">Indítás</string>
+    <string name="clipboard_share_starting">Profil indítása…</string>
+    <string name="clipboard_share_start_profile_message">A vágólap megosztásához a profilnak futnia kell.\n\nElindítja a(z) „%1$s” profilt, és futásban tartja a megosztáshoz? Ez felülbírálja a háttérben futásra vonatkozó beállítását.</string>
 </resources>
