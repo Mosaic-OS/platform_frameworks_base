@@ -11,7 +11,7 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 
 /** @hide */
 public class LogViewerApp {
-    private static final String PACKAGE_NAME = "app.grapheneos.logviewer";
+    private static final String PACKAGE_NAME = "app.mosaicos.logviewer";
 
     public static final String ACTION_ERROR_REPORT = PACKAGE_NAME + ".ERROR_REPORT";
     public static final String ACTION_LOGCAT = PACKAGE_NAME + ".LOGCAT";
