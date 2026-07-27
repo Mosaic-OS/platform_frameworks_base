@@ -9,14 +9,17 @@ import android.content.pm.GosPackageState;
 import android.content.pm.GosPackageStateFlag;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManagerInternal;
+import android.content.pm.ProviderInfo;
 import android.ext.PackageId;
 import android.location.HookedLocationManager;
 import android.os.Bundle;
 import android.os.UserHandle;
 import android.util.ArraySet;
+import android.util.Log;
 import android.util.Slog;
 
 import com.android.internal.app.ContactScopes;
+import com.android.internal.app.GservicesFlags;
 import com.android.server.pm.Computer;
 import com.android.server.pm.GosPackageStatePmHooks;
 import com.android.server.pm.ext.PackageExt;
@@ -28,6 +31,7 @@ import com.android.server.pm.pkg.PackageStateInternal;
 import static java.util.Objects.requireNonNull;
 
 public class PackageManagerHooks {
+    private static final String TAG = "PackageManagerHooks";
 
     // Called when package enabled setting for a system package is deserialized from storage
     @Nullable
@@ -119,6 +123,8 @@ public class PackageManagerHooks {
 
         flagsArr[AppBindArgs.FLAGS_IDX_DYN_CODE_LOADING] =
                 android.ext.dcl.DynCodeLoading.getAppBindFlags(context, userId, appInfo, unfilteredGosPs);
+        flagsArr[AppBindArgs.FLAGS_IDX_GSERVICES_FLAGS_REDIRECT] =
+                getGservicesFlagsRedirectFlag(pmComputer, appInfo, appUid, userId);
 
         var b = new Bundle();
         b.putParcelable(AppBindArgs.KEY_GOS_PACKAGE_STATE, gosPs);
@@ -126,6 +132,33 @@ public class PackageManagerHooks {
         b.putStringArray(AppBindArgs.KEY_SYSTEM_IDMAP_PATHS, android.content.res.AssetManager.systemIdmapPaths_);
 
         return b;
+    }
+
+    private static int getGservicesFlagsRedirectFlag(
+            Computer pmComputer, ApplicationInfo appInfo, int appUid, int userId) {
+        if (appInfo.ext().getPackageId() != PackageId.EUICC_SUPPORT_PIXEL) {
+            return 0;
+        }
+
+        // EuiccSupportPixel's package visibility policy prevents it from seeing GmsCore when
+        // GmsCore is installed as a user app. If Gservices flags redirection is added for other
+        // apps, handle their enablement policy separately instead of assuming the same visibility.
+        ProviderInfo provider = pmComputer.resolveContentProvider(
+                GservicesFlags.GSERVICES_AUTHORITY, 0L, userId, appUid);
+
+        if (provider != null
+                && provider.applicationInfo.ext().getPackageId() == PackageId.GMS_CORE) {
+            Slog.w(TAG, "not enabling Gservices flags redirect for " + appInfo.packageName
+                    + ": can query "
+                    + PackageId.GMS_CORE_NAME);
+            return 0;
+        }
+
+        if (Log.isLoggable(TAG, Log.VERBOSE)) {
+            Slog.v(TAG, "enabling Gservices flags redirect for " + appInfo.packageName);
+        }
+
+        return 1;
     }
 
     // Called when AppsFilter decides whether to restrict package visibility

@@ -19,6 +19,7 @@ import android.util.Slog;
 import com.android.internal.pm.parsing.pkg.AndroidPackageInternal;
 import com.android.internal.pm.pkg.component.ParsedUsesPermission;
 import com.android.server.LocalServices;
+import com.android.server.pm.PackageManagerLocal.GosPackageStateChangeCallback;
 import com.android.server.pm.pkg.AndroidPackage;
 import com.android.server.pm.pkg.PackageStateInternal;
 import com.android.server.pm.pkg.PackageUserStateInternal;
@@ -26,6 +27,7 @@ import com.android.server.pm.pkg.SharedUserApi;
 import com.android.server.utils.Slogf;
 
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import static android.content.pm.GosPackageState.*;
 import static com.android.server.pm.GosPackageStateUtils.parseFlag;
@@ -33,17 +35,25 @@ import static com.android.server.pm.GosPackageStateUtils.parseFlag;
 public class GosPackageStatePmHooks {
     private static final String TAG = "GosPackageStatePmHooks";
 
-    static void init(PackageManagerService pm) {
-        GosPackageStatePermissions.init(pm);
+    private final PackageManagerService pkgManager;
+
+    private final CopyOnWriteArrayList<GosPackageStateChangeCallback> changeCallbacks = new CopyOnWriteArrayList<>();
+
+    GosPackageStatePmHooks(PackageManagerService pkgManager) {
+        this.pkgManager = pkgManager;
+    }
+
+    void init() {
+        GosPackageStatePermissions.init(pkgManager);
     }
 
     @NonNull
-    public static GosPackageState getUnfiltered(PackageManagerService pm, String packageName, int userId) {
-        return getUnfiltered(pm.snapshotComputer(), packageName, userId);
+    GosPackageState getUnfiltered(String packageName, int userId) {
+        return getUnfiltered(pkgManager.snapshotComputer(), packageName, userId);
     }
 
     @NonNull
-    public static GosPackageState getUnfiltered(Computer snapshot, String packageName, int userId) {
+    private static GosPackageState getUnfiltered(Computer snapshot, String packageName, int userId) {
         PackageStateInternal psi = snapshot.getPackageStates().get(packageName);
         if (psi == null) {
             return NONE;
@@ -52,9 +62,8 @@ public class GosPackageStatePmHooks {
     }
 
     @NonNull
-    public static GosPackageState getFiltered(PackageManagerService pm, int callingUid, int callingPid,
-                                              String packageName, int userId) {
-        Computer pmComputer = pm.snapshotComputer();
+    GosPackageState getFiltered(int callingUid, int callingPid, String packageName, int userId) {
+        Computer pmComputer = pkgManager.snapshotComputer();
         PackageStateInternal packageState = pmComputer.getPackageStates().get(packageName);
         if (packageState == null) {
             // the package was likely racily uninstalled
@@ -80,12 +89,14 @@ public class GosPackageStatePmHooks {
         return permission.filterRead(gosPs);
     }
 
-    static boolean set(PackageManagerService pm,
-                       final int callingUid, final int callingPid,
+    boolean set(final int callingUid, final int callingPid,
                        String packageName, int userId,
                        GosPackageState update, int editorFlags) {
         final int appId;
+        final int uid;
+        final GosPackageState updatedGosPs;
 
+        final PackageManagerService pm = pkgManager;
         synchronized (pm.mLock) {
             PackageSetting packageSetting = pm.mSettings.getPackageLPr(packageName);
             if (packageSetting == null) {
@@ -118,7 +129,7 @@ public class GosPackageStatePmHooks {
             }
 
             GosPackageState currentGosPs = userState.getGosPackageState();
-            GosPackageState updatedGosPs = permission.filterWrite(currentGosPs, update);
+            updatedGosPs = permission.filterWrite(currentGosPs, update);
 
             SharedUserSetting sharedUser = pm.mSettings.getSharedUserSettingLPr(packageSetting);
 
@@ -138,13 +149,22 @@ public class GosPackageStatePmHooks {
 
             // will invalidate app-side caches (GosPackageState.sCache)
             pm.scheduleWritePackageRestrictions(userId);
+
+            uid = UserHandle.getUid(userId, appId);
+
+            // changeCallbacks is a CopyOnWriteArrayList, no need for external synchronization
+            for (GosPackageStateChangeCallback callback : changeCallbacks) {
+                callback.getHandler().post(() ->
+                        callback.onGosPackageStateChanged(uid, updatedGosPs, userId));
+            }
         }
+        Slogf.i(TAG, "set: callingUid: %s, uid: %s, pkgName: %s, value: %s", callingUid, uid, packageName, updatedGosPs);
 
         if ((editorFlags & EDITOR_FLAG_KILL_UID_AFTER_APPLY) != 0) {
             final long token = Binder.clearCallingIdentity();
             try {
                 // important to call outside the 'synchronized (pm.mLock)' section, may deadlock otherwise
-                ActivityManager.getService().killUid(appId, userId, "GosPackageState");
+                ActivityManager.getService().killUid(appId, userId, "GosPackageStateChange");
             } catch (RemoteException e) {
                 e.rethrowAsRuntimeException();
             } finally {
@@ -152,20 +172,37 @@ public class GosPackageStatePmHooks {
             }
         }
         if ((editorFlags & EDITOR_FLAG_NOTIFY_UID_AFTER_APPLY) != 0) {
-            int uid = UserHandle.getUid(userId, appId);
-
-            // get GosPackageState as the target app
-            GosPackageState ps = getFiltered(pm, uid, GosPackageStatePermissions.UNKNOWN_CALLING_PID, packageName, userId);
-
             final long token = Binder.clearCallingIdentity();
             try {
                 var am = LocalServices.getService(ActivityManagerInternal.class);
-                am.onGosPackageStateChanged(uid, ps);
+                // New GosPackageState is intentionally not passed since the GosPackageState change
+                // callback is delivered to the app process via a oneway binder call. Oneway binder
+                // calls to frozen processes are queued until the process is unfrozen. Not passing
+                // the GosPackageState also removes the need to maintain ordering between
+                // concurrent GosPackageState changes.
+                am.dispatchGosPackageStateCallbacks(uid);
             } finally {
                 Binder.restoreCallingIdentity(token);
             }
         }
         return true;
+    }
+
+    public void addChangeCallback(GosPackageStateChangeCallback callback) {
+        synchronized (changeCallbacks) {
+            changeCallbacks.add(callback);
+        }
+    }
+
+    public boolean removeChangeCallback(GosPackageStateChangeCallback callback) {
+        boolean res;
+        synchronized (changeCallbacks) {
+            res = changeCallbacks.remove(callback);
+        }
+        if (!res) {
+            Slog.e(TAG, "removeChangeCallback: callback is not in changeCallbacks list");
+        }
+        return res;
     }
 
     private static void maybeDeriveFlags(Computer snapshot, GosPackageState gosPs, PackageStateInternal pkgState) {
