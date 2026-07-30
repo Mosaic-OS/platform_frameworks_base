@@ -1,6 +1,5 @@
 package com.android.internal.os;
 
-import android.annotation.Nullable;
 import android.content.Context;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.GosPackageState;
@@ -17,11 +16,11 @@ import android.util.Log;
 import java.io.File;
 import java.nio.file.Files;
 
-// Per-app per-user per-process SELinux flags which are passed to the kernel via the selinux_flags
-// process attribute.
+// Per-app per-user per-process SELinux-protected flags which are passed to the kernel via the
+// grapheneos_flags process attribute.
 //
-// This process attribute is writable only by zygote and webview_zygote SELinux domains, app_zygote
-// domain is intentionally omitted since it can run untrusted app code.
+// This process attribute is writable only by zygote, zygote_next and webview_zygote SELinux domains,
+// app_zygote domain is intentionally omitted since it runs untrusted app code.
 public class SELinuxFlags {
     public static final long DENY_EXECMEM = 1;
     public static final long DENY_EXECMOD = (1 << 1);
@@ -32,6 +31,8 @@ public class SELinuxFlags {
     public static final long DENY_EXECUTE_ASHMEM_LIBCUTILS_DEVICE = (1 << 6);
     public static final long DENY_EXECUTE_PRIVAPP_DATA_FILE = (1 << 7);
     public static final long DENY_PROCESS_PTRACE = (1 << 8);
+    public static final long OVERRIDE_PREV_SELINUX_CTX_TO_INIT = (1 << 9);
+    public static final long DISABLE_HARDENED_MALLOC = (1 << 10);
 
     public static final long RESTRICT_MEMORY_DYN_CODE_EXEC_FLAGS =
             DENY_EXECMEM
@@ -57,12 +58,6 @@ public class SELinuxFlags {
 
     static long getForWebViewProcess(Context ctx, int userId, ApplicationInfo callerAppInfo,
                                      GosPackageState callerPs) {
-        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
-            if (!kernelSupportsSELinuxFlags()) {
-                return 0L;
-            }
-        }
-
         long res = ALL_RESTRICTIONS;
 
         if (!AswRestrictWebViewDynCodeLoading.I.get(ctx, userId, callerAppInfo, callerPs)) {
@@ -74,12 +69,6 @@ public class SELinuxFlags {
 
     static long get(Context ctx, int userId, ApplicationInfo appInfo,
                     GosPackageState ps, boolean isIsolatedProcess) {
-        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
-            if (!kernelSupportsSELinuxFlags()) {
-                return 0L;
-            }
-        }
-
         long res = ALL_RESTRICTIONS;
 
         if (!AswDenyNativeDebug.I.get(ctx, userId, appInfo, ps)) {
@@ -105,7 +94,7 @@ public class SELinuxFlags {
     }
 
     private static String getSelfProcAttrPath() {
-        return "/proc/self/task/" + Process.myPid() + "/attr/selinux_flags";
+        return "/proc/self/attr/grapheneos_flags";
     }
 
     public static boolean isExecmemBlocked() {

@@ -8,6 +8,7 @@ import android.content.pm.GosPackageState;
 import android.ext.settings.app.AswUseExecSpawning;
 import android.ext.settings.app.AswUseExtendedVaSpace;
 import android.ext.settings.app.AswUseHardenedMalloc;
+import android.os.Build;
 import android.os.Parcel;
 import android.os.Parcelable;
 import android.os.ZygoteSelectionMode;
@@ -16,6 +17,8 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.util.ArrayList;
 import java.util.HexFormat;
+
+import static android.os.Process.ZYGOTE_POLICY_FLAG_NATIVE_PROCESS;
 
 public class ZygoteExtraArgs implements Parcelable {
     private long selinuxFlags;
@@ -55,17 +58,36 @@ public class ZygoteExtraArgs implements Parcelable {
     public static ZygoteExtraArgs create(Context ctx, int userId, ApplicationInfo appInfo,
                                          boolean shouldForciblyEnableMemoryTagging,
                                          GosPackageState ps,
-                                         boolean isIsolatedProcess) {
+                                         boolean isIsolatedProcess,
+                                         int zygotePolicyFlags) {
         var res = new ZygoteExtraArgs();
         res.selinuxFlags = SELinuxFlags.get(ctx, userId, appInfo, ps, isIsolatedProcess);
-        boolean useZygoteSpawning = !AswUseExecSpawning.I.get(ctx, userId, appInfo, ps);
+        final boolean useHardenedMalloc = AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps);
+        final boolean useZygoteSpawning = !AswUseExecSpawning.isEnabledFor(ctx, userId, appInfo, ps,
+                (zygotePolicyFlags & ZYGOTE_POLICY_FLAG_NATIVE_PROCESS) != 0);
         if (useZygoteSpawning) {
             res.setFlag(Flag.USE_ZYGOTE_SPAWNING, true);
-            if (!AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps)) {
+            if (!useHardenedMalloc) {
                 res.setFlag(Flag.PREFER_COMPAT_ZYGOTE, true);
+                // See comment for the same statement below.
+                res.selinuxFlags |= SELinuxFlags.DISABLE_HARDENED_MALLOC;
             }
         } else {
-            res.setFlag(Flag.DISABLE_HARDENED_MALLOC, !AswUseHardenedMalloc.I.get(ctx, userId, appInfo, ps));
+            if (!appInfo.isSystemApp()) {
+                // The value of /proc/self/attr/prev is "u:r:zygote:s0" when exec spawning is used.
+                // Some apps expect the value to be "u:r:init:s0", as is the case under zygote spawning.
+                res.selinuxFlags |= SELinuxFlags.OVERRIDE_PREV_SELINUX_CTX_TO_INIT;
+            }
+
+            if (!useHardenedMalloc) {
+                // This flag is passed to the target process as the DISABLE_HARDENED_MALLOC=1 env
+                // variable.
+                res.setFlag(Flag.DISABLE_HARDENED_MALLOC, true);
+                // This flag applies only to the children of the target process since it's set too
+                // late to be read by the target process itself. Apps aren't allowed to change the
+                // GrapheneOS SELinux flags.
+                res.selinuxFlags |= SELinuxFlags.DISABLE_HARDENED_MALLOC;
+            }
             res.setFlag(Flag.ENABLE_COMPAT_VA_39_BIT, !AswUseExtendedVaSpace.I.get(ctx, userId, appInfo, ps));
         }
         res.setFlag(Flag.FORCIBLY_ENABLE_MEMORY_TAGGING, shouldForciblyEnableMemoryTagging);
@@ -80,7 +102,7 @@ public class ZygoteExtraArgs implements Parcelable {
                                                           ApplicationInfo callerAppInfo, GosPackageState callerPs) {
         var res = new ZygoteExtraArgs();
         res.selinuxFlags = SELinuxFlags.getForWebViewProcess(ctx, userId, callerAppInfo, callerPs);
-        res.setFlag(Flag.USE_ZYGOTE_SPAWNING, !AswUseExecSpawning.I.get(ctx, userId, callerAppInfo, callerPs));
+        res.setFlag(Flag.USE_ZYGOTE_SPAWNING, !AswUseExecSpawning.isEnabledFor(ctx, userId, callerAppInfo, callerPs, false));
         return res;
     }
 
@@ -103,6 +125,11 @@ public class ZygoteExtraArgs implements Parcelable {
     }
 
     public long getSelinuxFlags() {
+        if (Build.IS_DEBUGGABLE || Build.IS_EMULATOR) {
+            if (!SELinuxFlags.kernelSupportsSELinuxFlags()) {
+                return 0L;
+            }
+        }
         return selinuxFlags;
     }
 
@@ -165,7 +192,7 @@ public class ZygoteExtraArgs implements Parcelable {
 
     public long[] makeJniLongArray() {
         long[] res = new long[ARR_LEN];
-        res[IDX_SELINUX_FLAGS] = selinuxFlags;
+        res[IDX_SELINUX_FLAGS] = getSelinuxFlags();
         res[IDX_FLAGS] = flags;
         return res;
     }
