@@ -126,6 +126,7 @@ public:
         int height;
         int initWidth;
         int initHeight;
+        float vsyncRate = 60.0f;
         EGLDisplay  eglSurface;
         sp<IBinder> displayToken;
         sp<SurfaceControl> surfaceControl;
@@ -238,6 +239,12 @@ private:
     int         mCurrentInset;
     int         mTargetInset;
     bool        mUseNpotTextures = false;
+    // Dimensions/format currently allocated in the bound texture, so a frame of the
+    // same shape can be uploaded with glTexSubImage2D instead of reallocating.
+    int         mTexAllocWidth = -1;
+    int         mTexAllocHeight = -1;
+    int         mTexAllocFormat = -1;
+    void        invalidateTextureAllocation();
     EGLDisplay  mEgl;
     EGLDisplay  mEglContext;
     // Per-Display Attributes (to support multi-display)
