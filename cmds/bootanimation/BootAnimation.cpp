@@ -293,12 +293,6 @@ status_t BootAnimation::initTexture(Texture* texture, AssetManager& assets,
     return NO_ERROR;
 }
 
-void BootAnimation::invalidateTextureAllocation() {
-    mTexAllocWidth = -1;
-    mTexAllocHeight = -1;
-    mTexAllocFormat = -1;
-}
-
 status_t BootAnimation::initTexture(FileMap* map, int* width, int* height,
     bool premultiplyAlpha) {
     ATRACE_CALL();
@@ -324,42 +318,33 @@ status_t BootAnimation::initTexture(FileMap* map, int* width, int* height,
     if (tw < w) tw <<= 1;
     if (th < h) th <<= 1;
 
-    // Storage only has to be re-specified when the shape or format changes; otherwise
-    // the pixels can be dropped into the existing allocation.
-    const int allocW = (!mUseNpotTextures && (tw != w || th != h)) ? tw : w;
-    const int allocH = (!mUseNpotTextures && (tw != w || th != h)) ? th : h;
-    const bool reuseAllocation = allocW == mTexAllocWidth && allocH == mTexAllocHeight &&
-            static_cast<int>(bitmapInfo.format) == mTexAllocFormat;
-
     switch (bitmapInfo.format) {
         case ANDROID_BITMAP_FORMAT_RGBA_8888:
-            if (!reuseAllocation) {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, allocW, allocH, 0, GL_RGBA,
-                        GL_UNSIGNED_BYTE, allocW == w && allocH == h ? pixels : nullptr);
-            }
-            if (reuseAllocation || allocW != w || allocH != h) {
+            if (!mUseNpotTextures && (tw != w || th != h)) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tw, th, 0, GL_RGBA,
+                        GL_UNSIGNED_BYTE, nullptr);
                 glTexSubImage2D(GL_TEXTURE_2D, 0,
                         0, 0, w, h, GL_RGBA, GL_UNSIGNED_BYTE, pixels);
+            } else {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, w, h, 0, GL_RGBA,
+                        GL_UNSIGNED_BYTE, pixels);
             }
             break;
 
         case ANDROID_BITMAP_FORMAT_RGB_565:
-            if (!reuseAllocation) {
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, allocW, allocH, 0, GL_RGB,
-                        GL_UNSIGNED_SHORT_5_6_5, allocW == w && allocH == h ? pixels : nullptr);
-            }
-            if (reuseAllocation || allocW != w || allocH != h) {
+            if (!mUseNpotTextures && (tw != w || th != h)) {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tw, th, 0, GL_RGB,
+                        GL_UNSIGNED_SHORT_5_6_5, nullptr);
                 glTexSubImage2D(GL_TEXTURE_2D, 0,
                         0, 0, w, h, GL_RGB, GL_UNSIGNED_SHORT_5_6_5, pixels);
+            } else {
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, w, h, 0, GL_RGB,
+                        GL_UNSIGNED_SHORT_5_6_5, pixels);
             }
             break;
         default:
             break;
     }
-
-    mTexAllocWidth = allocW;
-    mTexAllocHeight = allocH;
-    mTexAllocFormat = static_cast<int>(bitmapInfo.format);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -515,7 +500,6 @@ status_t BootAnimation::initDisplaysAndSurfaces() {
             return error;
         }
         ui::Size resolution = displayMode.resolution;
-        display.vsyncRate = displayMode.vsyncRate;
         // Clamp each surface to max size
         resolution = limitSurfaceSize(resolution.width, resolution.height);
         // Create the native surface
@@ -1503,18 +1487,6 @@ bool BootAnimation::playAnimation(const Animation& animation) {
     const size_t numParts = animation.parts.size();
     nsecs_t frameDuration = s2ns(1) / animation.fps;
 
-    for (const auto& display : mDisplays) {
-        const float ratio = display.vsyncRate / animation.fps;
-        const int interval = static_cast<int>(ratio + 0.5f);
-        if (interval < 1 || fabsf(ratio - interval) > 0.05f) {
-            continue;
-        }
-        if (eglMakeCurrent(mEgl, display.eglSurface, display.eglSurface, mEglContext)
-                == EGL_TRUE) {
-            eglSwapInterval(mEgl, interval);
-        }
-    }
-
     SLOGD("%sAnimationShownTiming start time: %" PRId64 "ms", mShuttingDown ? "Shutdown" : "Boot",
             elapsedRealtime());
 
@@ -1526,7 +1498,6 @@ bool BootAnimation::playAnimation(const Animation& animation) {
         const Animation::Part& part(animation.parts[partIdx]);
         const size_t numFramesInPart = part.frames.size();
         glBindTexture(GL_TEXTURE_2D, 0);
-        invalidateTextureAllocation();
 
         // Handle animation package
         if (part.animation != nullptr) {
@@ -1601,7 +1572,6 @@ bool BootAnimation::playAnimation(const Animation& animation) {
                     if (part.count != 1) {
                         glGenTextures(1, &frame.tid);
                         glBindTexture(GL_TEXTURE_2D, frame.tid);
-                        invalidateTextureAllocation();
                     }
                     int w, h;
                     // Set decoding option to alpha unpremultiplied so that the R, G, B channels
@@ -1622,17 +1592,19 @@ bool BootAnimation::playAnimation(const Animation& animation) {
                 for (const auto& display : mDisplays) {
                     eglMakeCurrent(mEgl, display.eglSurface, display.eglSurface, mEglContext);
 
-                    const double ratioW =
-                            static_cast<double>(display.width) / display.initWidth;
-                    const double ratioH =
-                            static_cast<double>(display.height) / display.initHeight;
-                    const int animationX = (display.width - animation.width * ratioW) / 2;
-                    const int animationY = (display.height - animation.height * ratioH) / 2;
+                    // Scale uniformly to cover the display so the animation occupies the same
+                    // fraction of every panel instead of being drawn at its declared pixel size.
+                    const double scale = animation.width > 0 && animation.height > 0
+                            ? fmax(static_cast<double>(display.width) / animation.width,
+                                   static_cast<double>(display.height) / animation.height)
+                            : 1.0;
+                    const int animationX = (display.width - animation.width * scale) / 2;
+                    const int animationY = (display.height - animation.height * scale) / 2;
 
-                    const int trimWidth = frame.trimWidth * ratioW;
-                    const int trimHeight = frame.trimHeight * ratioH;
-                    const int trimX = frame.trimX * ratioW;
-                    const int trimY = frame.trimY * ratioH;
+                    const int trimWidth = frame.trimWidth * scale;
+                    const int trimHeight = frame.trimHeight * scale;
+                    const int trimX = frame.trimX * scale;
+                    const int trimY = frame.trimY * scale;
                     const int xc = animationX + trimX;
                     const int yc = animationY + trimY;
                     projectSceneToWindow(display);
