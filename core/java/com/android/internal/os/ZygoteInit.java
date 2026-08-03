@@ -135,18 +135,12 @@ public class ZygoteInit {
             bootTimingsTraceLog.traceBegin("PreloadClasses");
             preloadClasses();
             bootTimingsTraceLog.traceEnd(); // PreloadClasses
-        }
-        if (fullPreload) {
             bootTimingsTraceLog.traceBegin("CacheNonBootClasspathClassLoaders");
             cacheNonBootClasspathClassLoaders();
             bootTimingsTraceLog.traceEnd(); // CacheNonBootClasspathClassLoaders
-        }
-        if (fullPreload) {
             bootTimingsTraceLog.traceBegin("PreloadResources");
             Resources.preloadResources();
             bootTimingsTraceLog.traceEnd(); // PreloadResources
-        }
-        if (fullPreload) {
             Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadAppProcessHALs");
             nativePreloadAppProcessHALs();
             Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
@@ -188,7 +182,6 @@ public class ZygoteInit {
             // noinspection unused
             int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE + RoSystemProperties.FACTORYTEST;
         }
-
         Log.d(TAG, "end preload");
 
         sPreloadComplete = true;

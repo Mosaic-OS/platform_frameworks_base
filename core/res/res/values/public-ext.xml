@@ -35,7 +35,7 @@
         <!-- @hide -->
         <public name="config_usbPortSecuritySupported"/>
         <!-- @hide -->
-        <public name="config_usb_port_security_applies_to_pogo_pins"/>        
+        <public name="config_usb_port_security_applies_to_pogo_pins"/>
         <!-- @hide -->
         <public name="config_has_alternative_touchscreen_mode"/>
     </staging-public-group>
