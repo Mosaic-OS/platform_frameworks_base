@@ -4613,32 +4613,4 @@ public class LockSettingsService extends ILockSettings.Stub {
             return UserHandle.USER_NULL;
         }
     }
-
-    private final DuressPasswordHelper duressPasswordHelper;
-
-    @Override
-    public void setDuressCredentials(LockscreenCredential ownerCredential,
-            LockscreenCredential pin, LockscreenCredential password) {
-        checkWritePermission();
-
-        try {
-            duressPasswordHelper.setDuressCredentials(ownerCredential, pin, password);
-        } catch (Throwable e) {
-            throw new ParcelableException(e);
-        } finally {
-            ownerCredential.zeroize();
-            pin.zeroize();
-            password.zeroize();
-        }
-    }
-
-    @Override
-    public boolean hasDuressCredentials(LockscreenCredential ownerCredential) {
-        checkHavePermission();
-        return duressPasswordHelper.hasDuressCredentials(ownerCredential);
-    }
-
-    Context getContext() {
-        return mContext;
-    }
 }
