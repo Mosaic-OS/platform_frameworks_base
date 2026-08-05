@@ -7358,7 +7358,7 @@
     <bool name="config_enableQrCodeScannerOnLockScreen">true</bool>
 
     <!-- Default component for QR code scanner -->
-    <string name="config_defaultQrCodeComponent">app.grapheneos.camera/app.grapheneos.camera.ui.activities.QrTile</string>
+    <string name="config_defaultQrCodeComponent">app.mosaicos.camera/app.grapheneos.camera.ui.activities.QrTile</string>
 
     <!-- Intent action of the default QR code scanner component  -->
     <string name="config_defaultQrCodeComponentIntentAction"></string>
