@@ -368,4 +368,13 @@
         <item>Off</item>
         <item>On</item>
     </string-array>
+
+    <!-- State names for Blutilities: unavailable, off, on. The tile sets its own
+     subtitle when a device is connected, so the "on" entry may never appear on screen. It should
+     still be translated as if it could appear. [CHAR LIMIT=32] -->
+    <string-array name="tile_states_blutilities">
+        <item>Unavailable</item>
+        <item>Off</item>
+        <item>On</item>
+    </string-array>
 </resources>

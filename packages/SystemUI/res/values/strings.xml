@@ -5082,4 +5082,22 @@
     <string name="clipboard_share_start_profile_message">To share the clipboard, the profile needs to be running.\n\nStart \"%1$s\" and keep it running to share? This overrides its background setting.</string>
     <string name="clipboard_share_start_button">Start</string>
     <string name="clipboard_share_starting">Starting profile…</string>
+
+    <!-- Blutilities tile -->
+    <string name="blutilities_title" translatable="false">Blutilities</string>
+    <string name="blutilities_bluetooth_off">Bluetooth off</string>
+    <string name="blutilities_no_device">No audio device</string>
+    <string name="blutilities_connected">Connected</string>
+    <string name="blutilities_unknown">Codec #%1$d</string>
+    <string name="blutilities_subtitle_format"><xliff:g id="codec" example="LDAC">%1$s</xliff:g> · <xliff:g id="quality" example="990 kbps">%2$s</xliff:g></string>
+    <string name="blutilities_system">System selection (optimal)</string>
+    <string name="blutilities_system_summary">Android chooses automatically</string>
+    <string name="blutilities_header">Codec</string>
+    <string name="blutilities_header_ldac">LDAC quality</string>
+    <string name="blutilities_ldac_quality">Optimized for audio quality</string>
+    <string name="blutilities_ldac_balanced">Balanced audio and connection quality</string>
+    <string name="blutilities_ldac_connection">Optimized for connection quality</string>
+    <string name="blutilities_ldac_adaptive">Best effort (adaptive bit rate)</string>
+    <string name="blutilities_ldac_adaptive_summary">Automatic bit rate</string>
+    <string name="blutilities_failed">Couldn\'t change the codec</string>
 </resources>

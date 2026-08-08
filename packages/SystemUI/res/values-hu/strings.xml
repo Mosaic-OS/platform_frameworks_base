@@ -1911,4 +1911,20 @@
     <string name="clipboard_share_start_button">Indítás</string>
     <string name="clipboard_share_starting">Profil indítása…</string>
     <string name="clipboard_share_start_profile_message">A vágólap megosztásához a profilnak futnia kell.\n\nElindítja a(z) „%1$s” profilt, és futásban tartja a megosztáshoz? Ez felülbírálja a háttérben futásra vonatkozó beállítását.</string>
+
+    <string name="blutilities_bluetooth_off">Bluetooth kikapcsolva</string>
+    <string name="blutilities_no_device">Nincs hangeszköz</string>
+    <string name="blutilities_connected">Csatlakoztatva</string>
+    <string name="blutilities_unknown">%1$d. kodek</string>
+    <string name="blutilities_subtitle_format"><xliff:g id="codec" example="LDAC">%1$s</xliff:g> · <xliff:g id="quality" example="990 kbps">%2$s</xliff:g></string>
+    <string name="blutilities_system">Rendszer választása (optimális)</string>
+    <string name="blutilities_system_summary">Az Android automatikusan választ</string>
+    <string name="blutilities_header">Kodek</string>
+    <string name="blutilities_header_ldac">LDAC minőség</string>
+    <string name="blutilities_ldac_quality">Optimalizálva a hangminőségre</string>
+    <string name="blutilities_ldac_balanced">Kiegyensúlyozott hang- és kapcsolatminőség</string>
+    <string name="blutilities_ldac_connection">Optimalizálva a kapcsolat minőségére</string>
+    <string name="blutilities_ldac_adaptive">A legjobb eredmény (adaptív bitráta)</string>
+    <string name="blutilities_ldac_adaptive_summary">Automatikus bitráta</string>
+    <string name="blutilities_failed">A kodek nem módosítható</string>
 </resources>

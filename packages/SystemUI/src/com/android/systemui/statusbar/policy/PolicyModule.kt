@@ -30,6 +30,7 @@ import com.android.systemui.qs.shared.model.TileCategory
 import com.android.systemui.qs.tileimpl.QSTileImpl
 import com.android.systemui.qs.tiles.AlarmTile
 import com.android.systemui.qs.tiles.BatteryShareTile
+import com.android.systemui.qs.tiles.BluetoothCodecTile
 import com.android.systemui.qs.tiles.CameraToggleTile
 import com.android.systemui.qs.tiles.ClipboardShareTile
 import com.android.systemui.qs.tiles.FlashlightTile
@@ -517,6 +518,22 @@ interface PolicyModule {
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.PRIVACY,
             )
+
+        /** Inject BluetoothCodec tile config */
+        @Provides
+        @IntoMap
+        @StringKey(BluetoothCodecTile.TILE_SPEC)
+        fun provideBluetoothCodecTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(BluetoothCodecTile.TILE_SPEC),
+                uiConfig =
+                    QSTileUIConfig.Resource(
+                        iconRes = R.drawable.ic_blutilities,
+                        labelRes = R.string.blutilities_title,
+                    ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.CONNECTIVITY,
+            )
     }
 
     /** Inject LocationTile into tileMap in QSModule */
@@ -558,4 +575,10 @@ interface PolicyModule {
     @IntoMap
     @StringKey(ClipboardShareTile.TILE_SPEC)
     fun bindClipboardShareTile(tile: ClipboardShareTile): QSTileImpl<*>
+
+    /** Inject BluetoothCodecTile into tileMap in QSModule */
+    @Binds
+    @IntoMap
+    @StringKey(BluetoothCodecTile.TILE_SPEC)
+    fun bindBluetoothCodecTile(tile: BluetoothCodecTile): QSTileImpl<*>
 }
