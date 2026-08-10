@@ -181,4 +181,31 @@ public class AdbManager {
             throw e.rethrowFromSystemServer();
         }
     }
+
+    /**
+     * Permanently disables ADB over USB and Wi-Fi. The lock is stored on /data, so only a factory
+     * reset undoes it.
+     *
+     * @hide
+     */
+    @RequiresPermission(android.Manifest.permission.MANAGE_DEBUGGING)
+    public void lockAdbPermanently() {
+        try {
+            mService.lockAdbPermanently();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    /**
+     * @return true once ADB has been permanently disabled.
+     * @hide
+     */
+    public boolean isAdbPermanentlyLocked() {
+        try {
+            return mService.isAdbPermanentlyLocked();
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
 }

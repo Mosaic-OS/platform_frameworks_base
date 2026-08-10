@@ -172,6 +172,16 @@ public class AdbService extends IAdbManager.Stub {
         return true;
     }
 
+    private static String removeFunction(String functions, String function) {
+        StringBuilder remaining = new StringBuilder();
+        for (String candidate : functions.split(",")) {
+            if (candidate.isEmpty() || candidate.equals(function)) continue;
+            if (remaining.length() > 0) remaining.append(',');
+            remaining.append(candidate);
+        }
+        return remaining.toString();
+    }
+
     private class AdbSettingsObserver extends ContentObserver {
         private final Uri mAdbUsbUri = Settings.Global.getUriFor(Settings.Global.ADB_ENABLED);
         private final Uri mAdbWifiUri = Settings.Global.getUriFor(Settings.Global.ADB_WIFI_ENABLED);
@@ -215,6 +225,50 @@ public class AdbService extends IAdbManager.Stub {
      */
     private static final String WIFI_PERSISTENT_CONFIG_PROPERTY = "persist.adb.tls_server.enable";
 
+    /**
+     * Set when the user permanently disables ADB. It lives on /data, so only a factory reset clears
+     * it, and sepolicy allows nothing but system_server to write it.
+     */
+    private static final String ADB_LOCKED_PROPERTY = "persist.security.adb_locked";
+
+    static boolean isAdbLocked() {
+        return SystemProperties.getBoolean(ADB_LOCKED_PROPERTY, false);
+    }
+
+    /**
+     * Drops the persistent state that would otherwise let init bring adbd up on the next boot. This
+     * runs from systemReady(), so a rejected property write must never escape and kill
+     * system_server.
+     */
+    private void clearAdbPersistentState() {
+        try {
+            SystemProperties.set(
+                    USB_PERSISTENT_CONFIG_PROPERTY,
+                    removeFunction(
+                            SystemProperties.get(USB_PERSISTENT_CONFIG_PROPERTY, ""),
+                            UsbManager.USB_FUNCTION_ADB));
+            SystemProperties.set(WIFI_PERSISTENT_CONFIG_PROPERTY, "0");
+            SystemProperties.set(CTL_STOP, ADBD);
+        } catch (RuntimeException e) {
+            Slog.e(TAG, "Failed to clear the ADB persistent state", e);
+        }
+    }
+
+    private void enforceAdbLock() {
+        Slog.w(TAG, "ADB is permanently disabled; forcing every transport off");
+        mIsAdbUsbEnabled = false;
+        mIsAdbWifiEnabled = false;
+        clearAdbPersistentState();
+        try {
+            Settings.Global.putInt(mContentResolver, Settings.Global.ADB_ENABLED, 0);
+            Settings.Global.putInt(mContentResolver, Settings.Global.ADB_WIFI_ENABLED, 0);
+        } catch (SecurityException e) {
+            Slog.d(TAG, "ADB_ENABLED is restricted.");
+        }
+        mDebuggingManager.setAdbEnabled(false, AdbTransportType.USB);
+        mDebuggingManager.setAdbEnabled(false, AdbTransportType.WIFI);
+    }
+
     private final Context mContext;
     private final ContentResolver mContentResolver;
     private final ArrayMap<IBinder, IAdbTransport> mTransports = new ArrayMap<>();
@@ -240,6 +294,11 @@ public class AdbService extends IAdbManager.Stub {
      */
     public void systemReady() {
         Slog.d(TAG, "systemReady");
+
+        // Clear the persistent state first so the values read below are already off.
+        if (isAdbLocked()) {
+            clearAdbPersistentState();
+        }
 
         /*
          * Use the normal bootmode persistent prop to maintain state of adb across
@@ -287,6 +346,23 @@ public class AdbService extends IAdbManager.Stub {
     public void denyDebugging() {
         mContext.enforceCallingOrSelfPermission(android.Manifest.permission.MANAGE_DEBUGGING, null);
         mDebuggingManager.denyDebugging();
+    }
+
+    @Override
+    public void lockAdbPermanently() {
+        mContext.enforceCallingOrSelfPermission(android.Manifest.permission.MANAGE_DEBUGGING, null);
+        final long identity = Binder.clearCallingIdentity();
+        try {
+            SystemProperties.set(ADB_LOCKED_PROPERTY, "1");
+            enforceAdbLock();
+        } finally {
+            Binder.restoreCallingIdentity(identity);
+        }
+    }
+
+    @Override
+    public boolean isAdbPermanentlyLocked() {
+        return isAdbLocked();
     }
 
     @Override
@@ -441,6 +517,12 @@ public class AdbService extends IAdbManager.Stub {
                         + mIsAdbWifiEnabled
                         + ", transportType="
                         + transportType);
+
+        if (enable && isAdbLocked()) {
+            Slog.w(TAG, "Refusing to enable ADB: permanently disabled by the user");
+            enforceAdbLock();
+            return;
+        }
 
         switch (transportType) {
             case AdbTransportType.USB:

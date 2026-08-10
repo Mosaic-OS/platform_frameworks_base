@@ -129,4 +129,14 @@ interface IAdbManager {
      * Unregister callback for ADB debugging changed notification.
      */
     void unregisterCallback(IAdbCallback callback);
+
+    /**
+     * Permanently disables ADB over USB and Wi-Fi. Only a factory reset undoes this.
+     */
+    void lockAdbPermanently();
+
+    /**
+     * Returns true once ADB has been permanently disabled.
+     */
+    boolean isAdbPermanentlyLocked();
 }
