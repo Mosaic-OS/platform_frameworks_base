@@ -535,11 +535,9 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                         if (mUserTracker.getUserId() != userId) {
                             return;
                         }
-                        if (!mDeviceProvisionedController.isUserSetup(userId)) {
-                            Log.i(TAG, "Theme application deferred when setting changed.");
-                            mDeferredThemeEvaluation = true;
-                            return;
-                        }
+                        // The black theme is an explicit choice the user can make during setup,
+                        // and it needs no wallpaper, so it is applied without waiting for
+                        // provisioning like the rest of the palette does.
                         reevaluateBlackModeSetting(userId);
                     }
                 },
