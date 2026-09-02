@@ -1431,6 +1431,23 @@ class ContextImpl extends Context {
     }
 
     @Override
+    public void sendBroadcastAsUserMultiplePermissions(Intent intent, UserHandle user,
+            String[] receiverPermissions, BroadcastOptions options) {
+        String resolvedType = intent.resolveTypeIfNeeded(getContentResolver());
+        try {
+            intent.prepareToLeaveProcess(this);
+            ActivityManager.getService().broadcastIntentWithFeature(
+                    mMainThread.getApplicationThread(), getAttributionTag(), intent, resolvedType,
+                    null, Activity.RESULT_OK, null, null, receiverPermissions,
+                    null /*excludedPermissions=*/, null, AppOpsManager.OP_NONE,
+                    options != null ? options.toBundle() : null, false, false,
+                    user.getIdentifier());
+        } catch (RemoteException e) {
+            throw e.rethrowFromSystemServer();
+        }
+    }
+
+    @Override
     public void sendBroadcastMultiplePermissions(Intent intent, String[] receiverPermissions,
             String[] excludedPermissions, String[] excludedPackages, BroadcastOptions options) {
         if (GmsCompat.isEnabled()) {
@@ -3022,8 +3039,9 @@ class ContextImpl extends Context {
      * The "AsUser" variants allow us to properly enforce the user's restrictions.
      */
     private void warnIfCallingFromSystemProcess() {
-        if (Process.myUid() == Process.SYSTEM_UID) {
-            Slog.w(TAG, "Calling a method in the system process without a qualified user: "
+        int myUid = Process.myUid();
+        if (myUid == Process.SYSTEM_UID || myUid == Process.BLUETOOTH_UID) {
+            Slog.w(TAG, "Calling a method in a system process without a qualified user: "
                     + Debug.getCallers(5));
         }
     }
