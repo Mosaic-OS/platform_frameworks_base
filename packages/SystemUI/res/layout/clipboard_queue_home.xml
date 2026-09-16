@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; licensed under the Apache License, Version 2.0. -->
+<merge xmlns:android="http://schemas.android.com/apk/res/android">
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/clipboard_queue_help"
+        android:textAppearance="@style/TextAppearance.Material3.BodyLarge"
+        android:textColor="?attr/colorOnSurfaceVariant" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.Material3.TextInputLayout.OutlinedBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:layout_marginBottom="16dp"
+        android:hint="@string/clipboard_queue_text_hint">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/clipboard_queue_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="top|start"
+            android:minLines="3"
+            android:inputType="textMultiLine|textNoSuggestions"
+            android:saveEnabled="false"
+            android:filterTouchesWhenObscured="true"
+            android:importantForAutofill="noExcludeDescendants"
+            android:importantForContentCapture="noExcludeDescendants" />
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clipboard_queue_send_text"
+        style="@style/Widget.Material3.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="48dp"
+        android:text="@string/clipboard_queue_send_text" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clipboard_queue_import_clipboard"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:minHeight="48dp"
+        android:text="@string/clipboard_queue_import_clipboard" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clipboard_queue_choose_image"
+        style="@style/Widget.Material3.Button.OutlinedButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:minHeight="48dp"
+        android:text="@string/clipboard_queue_choose_image" />
+
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clipboard_queue_open"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:minHeight="48dp"
+        android:text="@string/clipboard_queue_open" />
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/clipboard_queue_about"
+        style="@style/Widget.Material3.Button.TextButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:minHeight="48dp"
+        android:text="@string/clipboard_queue_about" />
+</merge>

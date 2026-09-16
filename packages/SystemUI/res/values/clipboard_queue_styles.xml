@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; licensed under the Apache License, Version 2.0. -->
+<resources>
+    <style name="Theme.SystemUI.ClipboardQueue" parent="Theme.Material3.DynamicColors.DayNight">
+        <item name="colorPrimaryInverse">@*android:color/materialColorInversePrimary</item>
+        <item name="colorSurfaceInverse">@*android:color/materialColorInverseSurface</item>
+        <item name="colorOnSurfaceInverse">@*android:color/materialColorInverseOnSurface</item>
+        <item name="snackbarButtonStyle">@style/ClipboardQueue.SnackbarAction</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">@bool/clipboard_queue_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/clipboard_queue_light_bars</item>
+    </style>
+    <style name="ClipboardQueue.ItemAction" parent="Widget.Material3.Button.TextButton">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:textAlignment">gravity</item>
+        <item name="android:textAppearance">@style/TextAppearance.Material3.LabelLarge</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:singleLine">false</item>
+    </style>
+    <style name="ClipboardQueue.ItemAction.Primary" parent="ClipboardQueue.ItemAction">
+        <item name="materialThemeOverlay">@style/ThemeOverlay.Material3.Button</item>
+        <item name="android:textColor">@color/m3_button_foreground_color_selector</item>
+        <item name="backgroundTint">@color/m3_button_background_color_selector</item>
+        <item name="rippleColor">@color/m3_button_ripple_color_selector</item>
+    </style>
+    <style name="ClipboardQueue.SnackbarAction" parent="Widget.Material3.Button.TextButton.Snackbar">
+        <item name="android:textColor">?attr/colorPrimaryInverse</item>
+    </style>
+    <style name="ThemeOverlay.SystemUI.ClipboardQueue.Picker" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@*android:color/materialColorSurfaceBright</item>
+        <item name="android:textColorPrimary">@*android:color/materialColorOnSurface</item>
+        <item name="android:textColorSecondary">@*android:color/materialColorOnSurfaceVariant</item>
+        <item name="android:colorAccent">@*android:color/materialColorPrimary</item>
+        <item name="colorPrimary">@*android:color/materialColorPrimary</item>
+        <item name="alertDialogStyle">@style/ClipboardQueue.Picker.Dialog</item>
+        <item name="android:dialogCornerRadius">28dp</item>
+        <item name="android:windowElevation">0dp</item>
+    </style>
+    <style name="ClipboardQueue.Picker.Dialog" parent="MaterialAlertDialog.Material3">
+        <item name="backgroundTint">@*android:color/materialColorSurfaceBright</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.ClipboardQueue.Picker</item>
+    </style>
+    <style name="ShapeAppearance.ClipboardQueue.Picker" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
+        <item name="cornerSize">28dp</item>
+    </style>
+    <bool name="clipboard_queue_light_bars">true</bool>
+</resources>

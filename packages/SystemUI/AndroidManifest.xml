@@ -432,6 +432,9 @@
     <protected-broadcast android:name="com.android.systemui.action.LAUNCH_SYSTEM_MEDIA_OUTPUT_DIALOG" />
     <protected-broadcast android:name="com.android.systemui.STARTED" />
 
+    <uses-permission android:name="android.permission.MANAGE_CLIPBOARD_QUEUE" />
+    <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
+
     <application
         android:name=".application.impl.SystemUIApplicationImpl"
         android:persistent="true"
@@ -626,6 +629,22 @@
                 android:resource="@xml/gradient_color_wallpaper">
             </meta-data>
         </service>
+
+        <provider android:name=".clipboard.ClipboardQueueProvider"
+                  android:authorities="com.android.systemui.clipboardqueue"
+                  android:exported="false"
+                  android:grantUriPermissions="true"
+                  android:directBootAware="false"
+                  android:process=":clipboard_queue" />
+
+        <activity android:name=".clipboard.ClipboardQueueActivity"
+                  android:exported="false"
+                  android:directBootAware="false"
+                  android:excludeFromRecents="true"
+                  android:process=":clipboard_queue"
+                  android:theme="@style/Theme.SystemUI.ClipboardQueue"
+                  android:windowSoftInputMode="adjustResize|stateAlwaysHidden"
+                  android:label="@string/clipboard_queue_title" />
 
         <activity android:name=".tuner.TunerActivity"
                   android:enabled="false"

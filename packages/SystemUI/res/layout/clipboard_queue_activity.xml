@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; licensed under the Apache License, Version 2.0. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/clipboard_queue_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:focusableInTouchMode="true"
+    android:saveEnabled="false"
+    android:importantForAutofill="noExcludeDescendants"
+    android:importantForContentCapture="noExcludeDescendants"
+    android:background="?attr/colorSurface">
+
+    <com.google.android.material.appbar.MaterialToolbar
+        android:id="@+id/clipboard_queue_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
+        app:navigationIcon="@drawable/ic_arrow_back"
+        app:navigationIconTint="?attr/colorOnSurface"
+        app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/clipboard_queue_progress"
+        style="@style/Widget.Material3.LinearProgressIndicator"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:indeterminate="true"
+        android:contentDescription="@string/clipboard_queue_progress"
+        android:visibility="invisible"
+        app:indeterminateAnimationType="disjoint"
+        app:trackCornerRadius="50%"
+        app:hideAnimationBehavior="outward" />
+
+    <ScrollView
+        android:id="@+id/clipboard_queue_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:id="@+id/clipboard_queue_content"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp" />
+    </ScrollView>
+</LinearLayout>

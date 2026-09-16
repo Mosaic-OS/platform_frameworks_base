@@ -6130,6 +6130,10 @@
     <permission android:name="android.permission.TRIGGER_SHELL_PROFCOLLECT_UPLOAD"
         android:protectionLevel="signature" />
 
+    <!-- @hide -->
+    <permission android:name="android.permission.MANAGE_CLIPBOARD_QUEUE"
+        android:protectionLevel="signature" />
+
     <!-- Allows an application to be the status bar.  Currently used only by SystemUI.apk
         @hide
         @SystemApi -->

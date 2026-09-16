@@ -1,54 +1,40 @@
+/*
+ * Copyright (C) 2026 The MosaicOS Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.systemui.qs.tiles.dialog
 
-import com.android.internal.jank.InteractionJankMonitor
-import com.android.systemui.animation.DialogCuj
-import com.android.systemui.animation.DialogTransitionAnimator
-import com.android.systemui.animation.Expandable
-import com.android.systemui.dagger.SysUISingleton
-import com.android.systemui.dagger.qualifiers.Main
-import javax.inject.Inject
+import android.app.ActivityManager
 import android.content.Context
-import com.android.systemui.statusbar.phone.SystemUIDialog
-import kotlinx.coroutines.CoroutineScope
-
-private const val INTERACTION_JANK_TAG = "clipboard_share"
+import android.content.Intent
+import android.os.UserHandle
+import com.android.systemui.animation.Expandable
+import com.android.systemui.clipboard.ClipboardQueueActivity
+import com.android.systemui.dagger.SysUISingleton
+import com.android.systemui.plugins.ActivityStarter
+import javax.inject.Inject
 
 @SysUISingleton
 class ClipboardShareDialogManager @Inject constructor(
-    private val dialogTransitionAnimator: DialogTransitionAnimator,
-    private val dialogDelegateFactory: ClipboardShareDialogDelegate.Factory,
+    private val activityStarter: ActivityStarter,
 ) {
-    private var dialog: SystemUIDialog? = null
-
     fun create(context: Context, expandable: Expandable?) {
-        if (dialog != null) return
-
-        try {
-            val newDialog = dialogDelegateFactory.create(context).createDialog()
-            dialog = newDialog
-
-            val controller = expandable?.dialogTransitionController(
-                DialogCuj(InteractionJankMonitor.CUJ_SHADE_DIALOG_OPEN, INTERACTION_JANK_TAG)
-            )
-
-            if (controller != null) {
-                dialogTransitionAnimator.show(
-                    newDialog,
-                    controller,
-                    animateBackgroundBoundsChange = true,
-                )
-            } else {
-                newDialog.show()
-            }
-        } catch (e: Exception) {
-            // Do not leave a non-null dialog that was never shown
-            dialog = null
-            android.util.Log.e(
-                "ClipboardShareDialog", "Failed to create/show clipboard share dialog", e)
-        }
-    }
-
-    fun destroyDialog() {
-        dialog = null
+        val intent = Intent(context, ClipboardQueueActivity::class.java)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+        activityStarter.postStartActivityDismissingKeyguard(
+            intent, 0, null, null, UserHandle.of(ActivityManager.getCurrentUser())
+        )
     }
 }

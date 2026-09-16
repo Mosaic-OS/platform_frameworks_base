@@ -155,6 +155,7 @@ import com.android.server.bitmapoffload.BitmapOffloadService;
 import com.android.server.blob.BlobStoreManagerService;
 import com.android.server.broadcastradio.BroadcastRadioService;
 import com.android.server.camera.CameraServiceProxy;
+import com.android.server.clipboard.ClipboardQueueService;
 import com.android.server.clipboard.ClipboardService;
 import com.android.server.companion.CompanionDeviceManagerService;
 import com.android.server.companion.datatransfer.continuity.TaskContinuityManagerService;
@@ -3129,6 +3130,14 @@ public final class SystemServer implements Dumpable {
         // NOTE: ClipboardService depends on ContentCapture and Autofill
         t.traceBegin("StartClipboardService");
         mSystemServiceManager.startService(ClipboardService.class);
+        t.traceEnd();
+
+        t.traceBegin("StartClipboardQueueService");
+        try {
+            mSystemServiceManager.startService(ClipboardQueueService.class);
+        } catch (Throwable e) {
+            Slog.e(TAG, "Profile inbox unavailable", e);
+        }
         t.traceEnd();
 
         if (!isTv && !isWatch) {

@@ -1,12 +1,25 @@
+/*
+ * Copyright (C) 2026 The MosaicOS Project
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
 package com.android.systemui.qs.tiles
 
 import android.app.ActivityManager
-import android.content.ClipboardManager
 import android.content.Intent
 import android.os.Handler
 import android.os.Looper
-import android.os.UserHandle
-import android.os.UserManager
 import android.service.quicksettings.Tile
 import com.android.internal.logging.MetricsLogger
 import com.android.internal.widget.LockPatternUtils
@@ -21,7 +34,6 @@ import com.android.systemui.qs.QSHost
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.logging.QSLogger
 import com.android.systemui.qs.tileimpl.QSTileImpl
-import com.android.systemui.qs.tiles.dialog.ClipboardShareDialogDelegate
 import com.android.systemui.qs.tiles.dialog.ClipboardShareDialogManager
 import com.android.systemui.res.R
 import javax.inject.Inject
@@ -51,64 +63,27 @@ class ClipboardShareTile @Inject constructor(
     override fun newTileState() = QSTile.BooleanState()
 
     override fun handleClick(expandable: Expandable?) {
-        mainHandler.post {
-            dialogManager.create(mContext, expandable)
-        }
+        mainHandler.post { dialogManager.create(mContext, expandable) }
     }
 
     override fun handleLongClick(expandable: Expandable?) {
-        // Not needed now, but must implement. Maybe add some feature later
+        handleClick(expandable)
     }
 
     override fun getLongClickIntent(): Intent? = null
 
     override fun handleUpdateState(state: QSTile.BooleanState, arg: Any?) {
-        val currentUserId = ActivityManager.getCurrentUser()
-        val secretUserId = lockPatternUtils.getSecretProfileUserId()
-
+        val secret = ActivityManager.getCurrentUser() == lockPatternUtils.getSecretProfileUserId()
         state.label = tileLabel
         state.icon = ResourceIcon.get(R.drawable.ic_content_paste)
-
-        // The secret profile may never share its clipboard out
-        if (currentUserId == secretUserId) {
-            state.state = Tile.STATE_UNAVAILABLE
-            state.secondaryLabel = mContext.getString(R.string.clipboard_share_no_users)
-            state.value = false
-            return
-        }
-
-        val hasClip = try {
-            val userCtx = mContext.createContextAsUser(UserHandle.of(currentUserId), 0)
-            userCtx.getSystemService(ClipboardManager::class.java)?.hasPrimaryClip() == true
-        } catch (e: Exception) {
-            false
-        }
-
-        val um = mContext.getSystemService(UserManager::class.java)
-        // Stopped profiles are eligible too
-        val hasOtherUsers = ClipboardShareDialogDelegate
-            .getEligibleTargetUsers(um, currentUserId, secretUserId)
-            .isNotEmpty()
-
-        when {
-            !hasClip -> {
-                state.state = Tile.STATE_UNAVAILABLE
-                state.secondaryLabel = mContext.getString(R.string.clipboard_share_empty)
-            }
-            !hasOtherUsers -> {
-                state.state = Tile.STATE_UNAVAILABLE
-                state.secondaryLabel = mContext.getString(R.string.clipboard_share_no_users)
-            }
-            else -> {
-                state.state = Tile.STATE_ACTIVE
-                state.secondaryLabel = ""
-            }
-        }
-        state.value = state.state == Tile.STATE_ACTIVE
+        state.state = if (secret) Tile.STATE_UNAVAILABLE else Tile.STATE_INACTIVE
+        state.secondaryLabel = mContext.getString(
+            if (secret) R.string.clipboard_queue_unavailable else R.string.clipboard_queue_tile_hint
+        )
+        state.value = false
     }
 
     override fun isAvailable() = true
 
-    override fun getTileLabel(): CharSequence =
-        mContext.getString(R.string.clipboard_share_title)
+    override fun getTileLabel(): CharSequence = mContext.getString(R.string.clipboard_queue_title)
 }

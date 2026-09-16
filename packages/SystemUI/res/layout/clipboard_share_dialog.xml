@@ -24,9 +24,9 @@
         android:overScrollMode="ifContentScrolls"
         android:scrollbars="none"/>
 
-    <Button
+    <com.google.android.material.button.MaterialButton
         android:id="@+id/clipboard_share_cancel"
-        style="?android:attr/borderlessButtonStyle"
+        style="@style/Widget.Material3.Button.TextButton"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="end"
