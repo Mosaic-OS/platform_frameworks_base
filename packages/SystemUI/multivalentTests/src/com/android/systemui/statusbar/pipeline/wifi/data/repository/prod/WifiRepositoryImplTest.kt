@@ -42,6 +42,7 @@ import com.android.systemui.statusbar.pipeline.shared.data.model.DataActivityMod
 import com.android.systemui.statusbar.pipeline.shared.data.repository.connectivityRepository
 import com.android.systemui.statusbar.pipeline.shared.data.repository.fake
 import com.android.systemui.statusbar.pipeline.shared.ui.model.WifiToggleState
+import com.android.systemui.statusbar.pipeline.wifi.data.repository.prod.WifiRepositoryImpl.Companion.PENDING_TOGGLE_TIMEOUT_MS
 import com.android.systemui.statusbar.pipeline.wifi.data.repository.prod.WifiRepositoryImpl.Companion.WIFI_NETWORK_DEFAULT
 import com.android.systemui.statusbar.pipeline.wifi.data.repository.prod.WifiRepositoryImpl.Companion.WIFI_TOGGLE_OPTIMISTIC_PAUSE_TIMEOUT_MS
 import com.android.systemui.statusbar.pipeline.wifi.data.repository.prod.WifiRepositoryImpl.Companion.WIFI_TOGGLE_OPTIMISTIC_SCANNING_TIMEOUT_MS
@@ -60,15 +61,20 @@ import com.android.wifitrackerlib.WifiEntry.WIFI_LEVEL_MIN
 import com.android.wifitrackerlib.WifiEntry.WIFI_LEVEL_UNREACHABLE
 import com.android.wifitrackerlib.WifiPickerTracker
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.argumentCaptor
+import org.mockito.kotlin.doThrow
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.reset
+import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -109,11 +115,12 @@ class WifiRepositoryImplTest : SysuiTestCase() {
 
     private val callbackCaptor = argumentCaptor<WifiPickerTracker.WifiPickerTrackerCallback>()
 
-    private val dispatcher = kosmos.testDispatcher
+    private var dispatcher: CoroutineDispatcher = kosmos.testDispatcher
     private val testScope = kosmos.testScope
 
     @Before
     fun setUp() {
+        whenever(wifiManager.setWifiEnabled(any())).thenReturn(true)
         userRepository.setUserInfos(listOf(PRIMARY_USER, ANOTHER_USER))
         whenever(wifiPickerTrackerFactory.create(any(), any(), callbackCaptor.capture(), any()))
             .thenReturn(wifiPickerTracker)
@@ -1390,6 +1397,7 @@ class WifiRepositoryImplTest : SysuiTestCase() {
             assertThat(toggleState).isEqualTo(WifiToggleState.Scanning)
 
             testScope.testScheduler.advanceTimeBy(WIFI_TOGGLE_OPTIMISTIC_SCANNING_TIMEOUT_MS)
+            runCurrent()
 
             assertThat(toggleState).isEqualTo(WifiToggleState.Normal)
         }
@@ -1405,6 +1413,266 @@ class WifiRepositoryImplTest : SysuiTestCase() {
             verify(wifiManager).stopRestrictingAutoJoinToSubscriptionId()
             verify(wifiManager).startScan()
             assertThat(toggleState).isEqualTo(WifiToggleState.Scanning)
+        }
+
+    @Test
+    fun disableWifi_afterExternalEnable_deliversEqualRequests() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+
+            repeat(2) {
+                whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+                getCallback().onWifiStateChanged()
+                assertThat(enabled).isTrue()
+
+                underTest.disableWifi()
+                assertThat(enabled).isFalse()
+
+                whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_DISABLED)
+                getCallback().onWifiStateChanged()
+            }
+
+            verify(wifiManager, times(2)).setWifiEnabled(false)
+        }
+
+    @Test
+    fun enableWifi_afterExternalDisable_deliversEqualRequests() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+
+            repeat(2) {
+                whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_DISABLED)
+                getCallback().onWifiStateChanged()
+                assertThat(enabled).isFalse()
+
+                underTest.enableWifi()
+                assertThat(enabled).isTrue()
+
+                whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+                getCallback().onWifiStateChanged()
+            }
+
+            verify(wifiManager, times(2)).setWifiEnabled(true)
+        }
+
+    @Test
+    fun disableWifi_togglesDuringManagerCall_coalescesToLatestEqualRequest() =
+        testScope.runTest {
+            whenever(wifiManager.setWifiEnabled(false))
+                .thenAnswer {
+                    underTest.enableWifi()
+                    assertThat(underTest.isWifiEnabled.value).isTrue()
+                    underTest.disableWifi()
+                    assertThat(underTest.isWifiEnabled.value).isFalse()
+                    true
+                }
+                .thenReturn(true)
+
+            underTest.disableWifi()
+
+            verify(wifiManager, times(2)).setWifiEnabled(false)
+            verify(wifiManager, never()).setWifiEnabled(true)
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Normal)
+        }
+
+    @Test
+    fun disableWifi_confirmationBeforeSubmission_keepsOptimisticState() =
+        testScope.runTest {
+            dispatcher = StandardTestDispatcher(testScheduler)
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+
+            underTest.disableWifi()
+            verify(wifiManager, never()).setWifiEnabled(false)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_DISABLED)
+            getCallback().onWifiStateChanged()
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+
+            assertThat(enabled).isFalse()
+            runCurrent()
+            verify(wifiManager).setWifiEnabled(false)
+            assertThat(enabled).isFalse()
+        }
+
+    @Test
+    fun enableWifi_afterDisable_staleDisabledConfirmationKeepsScanning() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+
+            underTest.disableWifi()
+            underTest.enableWifi()
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_DISABLED)
+            getCallback().onWifiStateChanged()
+
+            assertThat(enabled).isTrue()
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Scanning)
+        }
+
+    @Test
+    fun disableWifi_unconfirmedRequest_resetsOnTimeout() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+
+            underTest.disableWifi()
+            assertThat(enabled).isFalse()
+            testScheduler.advanceTimeBy(PENDING_TOGGLE_TIMEOUT_MS)
+            runCurrent()
+
+            assertThat(enabled).isTrue()
+        }
+
+    @Test
+    fun disableWifi_newRequest_cancelsPreviousTimeout() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+
+            underTest.disableWifi()
+            testScheduler.advanceTimeBy(PENDING_TOGGLE_TIMEOUT_MS / 2)
+            underTest.enableWifi()
+            underTest.disableWifi()
+            testScheduler.advanceTimeBy(PENDING_TOGGLE_TIMEOUT_MS / 2)
+            runCurrent()
+            assertThat(enabled).isFalse()
+
+            testScheduler.advanceTimeBy(PENDING_TOGGLE_TIMEOUT_MS / 2)
+            runCurrent()
+            assertThat(enabled).isTrue()
+        }
+
+    @Test
+    fun disableWifi_rejectedRequest_resetsOptimisticState() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+            whenever(wifiManager.setWifiEnabled(false)).thenReturn(false)
+
+            underTest.disableWifi()
+
+            assertThat(enabled).isTrue()
+        }
+
+    @Test
+    fun disableWifi_olderRejectedRequest_doesNotResetNewerRequest() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+            whenever(wifiManager.setWifiEnabled(false))
+                .thenAnswer {
+                    underTest.disableWifi()
+                    false
+                }
+                .thenReturn(true)
+
+            underTest.disableWifi()
+
+            verify(wifiManager, times(2)).setWifiEnabled(false)
+            assertThat(enabled).isFalse()
+        }
+
+    @Test
+    fun disableWifi_securityException_resetsStateAndAllowsRetry() =
+        testScope.runTest {
+            val enabled by collectLastValue(underTest.isWifiEnabled)
+            whenever(wifiPickerTracker.wifiState).thenReturn(WifiManager.WIFI_STATE_ENABLED)
+            getCallback().onWifiStateChanged()
+            whenever(wifiManager.setWifiEnabled(false))
+                .thenThrow(SecurityException())
+                .thenReturn(true)
+
+            underTest.disableWifi()
+            assertThat(enabled).isTrue()
+            underTest.disableWifi()
+
+            verify(wifiManager, times(2)).setWifiEnabled(false)
+            assertThat(enabled).isFalse()
+        }
+
+    @Test
+    fun enableWifi_scanException_doesNotStopToggleWorker() =
+        testScope.runTest {
+            whenever(wifiManager.startScan()).thenThrow(IllegalStateException())
+
+            underTest.enableWifi()
+            assertThat(underTest.isWifiEnabled.value).isTrue()
+            underTest.disableWifi()
+
+            verify(wifiManager).setWifiEnabled(false)
+            assertThat(underTest.isWifiEnabled.value).isFalse()
+        }
+
+    @Test
+    fun pauseWifi_securityException_doesNotEscape() =
+        testScope.runTest {
+            doThrow(SecurityException())
+                .whenever(wifiManager)
+                .startRestrictingAutoJoinToSubscriptionId(any())
+
+            underTest.pauseWifi()
+            runCurrent()
+
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Normal)
+        }
+
+    @Test
+    fun scanForWifi_securityException_resetsOnTimeout() =
+        testScope.runTest {
+            doThrow(SecurityException()).whenever(wifiManager).stopRestrictingAutoJoinToSubscriptionId()
+
+            underTest.scanForWifi()
+            testScheduler.advanceTimeBy(WIFI_TOGGLE_OPTIMISTIC_SCANNING_TIMEOUT_MS)
+            runCurrent()
+
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Normal)
+        }
+
+    @Test
+    fun scanForWifi_alreadyDefault_resetsWithoutAnotherEmission() =
+        testScope.runTest {
+            val toggleState by collectLastValue(underTest.wifiToggleState)
+            connectivityRepository.fake.setWifiConnected()
+
+            underTest.scanForWifi()
+            runCurrent()
+
+            assertThat(toggleState).isEqualTo(WifiToggleState.Normal)
+        }
+
+    @Test
+    fun scanForWifi_alreadyActive_resetsWithoutAnotherEmission() =
+        testScope.runTest {
+            val toggleState by collectLastValue(underTest.wifiToggleState)
+            val entry = mock<WifiEntry>()
+            whenever(entry.isPrimaryNetwork).thenReturn(true)
+            whenever(entry.level).thenReturn(2)
+            whenever(wifiPickerTracker.connectedWifiEntry).thenReturn(entry)
+            getCallback().onWifiEntriesChanged()
+
+            underTest.scanForWifi()
+            runCurrent()
+
+            assertThat(toggleState).isEqualTo(WifiToggleState.Normal)
+        }
+
+    @Test
+    fun disableWifi_whileScanning_resetsStateImmediately() =
+        testScope.runTest {
+            underTest.enableWifi()
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Scanning)
+
+            underTest.disableWifi()
+
+            assertThat(underTest.wifiToggleState.value).isEqualTo(WifiToggleState.Normal)
+            assertThat(underTest.isWifiEnabled.value).isFalse()
         }
 
     @Test

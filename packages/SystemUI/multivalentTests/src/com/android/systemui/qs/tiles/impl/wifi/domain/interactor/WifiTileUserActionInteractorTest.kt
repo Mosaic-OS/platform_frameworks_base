@@ -35,12 +35,17 @@ import com.android.systemui.statusbar.pipeline.wifi.ui.model.WifiTileIconModel
 import com.android.systemui.testKosmos
 import com.google.common.truth.Truth.assertThat
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.Mock
 import org.mockito.MockitoAnnotations
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 
@@ -108,6 +113,28 @@ class WifiTileUserActionInteractorTest : SysuiTestCase() {
         }
 
     @Test
+    fun handleSecondaryClick_dispatchesToggleToMainContext() =
+        testScope.runTest {
+            underTest =
+                WifiTileUserActionInteractor(
+                    StandardTestDispatcher(testScheduler),
+                    internetDialogManager,
+                    accessPointController,
+                    wifiRepository,
+                    intentHandler,
+                )
+
+            launch(UnconfinedTestDispatcher(testScheduler)) {
+                underTest.handleInput(QSTileInputTestKtx.toggleClick(testModel))
+            }
+            verify(wifiRepository, never()).disableWifi()
+
+            runCurrent()
+
+            verify(wifiRepository).disableWifi()
+        }
+
+    @Test
     fun handleSecondaryClick_whenDisabled_enablesWifi() =
         testScope.runTest {
             isWifiEnabledState.value = false
@@ -119,7 +146,7 @@ class WifiTileUserActionInteractorTest : SysuiTestCase() {
         }
 
     @Test
-    fun handleSecondaryClick_whenEnabledAndNotConnected_scansForWifi() =
+    fun handleSecondaryClick_whenEnabledAndNotConnected_disablesWifi() =
         testScope.runTest {
             isWifiEnabledState.value = true
             wifiToggleState.value = WifiToggleState.Normal
@@ -127,11 +154,11 @@ class WifiTileUserActionInteractorTest : SysuiTestCase() {
 
             underTest.handleInput(QSTileInputTestKtx.toggleClick(testModel))
 
-            verify(wifiRepository).scanForWifi()
+            verify(wifiRepository).disableWifi()
         }
 
     @Test
-    fun handleSecondaryClick_whenEnabledAndConnected_pausesWifi() =
+    fun handleSecondaryClick_whenEnabledAndConnected_disablesWifi() =
         testScope.runTest {
             isWifiEnabledState.value = true
             wifiToggleState.value = WifiToggleState.Normal
@@ -139,26 +166,26 @@ class WifiTileUserActionInteractorTest : SysuiTestCase() {
 
             underTest.handleInput(QSTileInputTestKtx.toggleClick(testModel))
 
-            verify(wifiRepository).pauseWifi()
+            verify(wifiRepository).disableWifi()
         }
 
     @Test
-    fun handleSecondaryClick_whenPausing_scansForWifi() =
+    fun handleSecondaryClick_whenPausing_disablesWifi() =
         testScope.runTest {
             wifiToggleState.value = WifiToggleState.Pausing
 
             underTest.handleInput(QSTileInputTestKtx.toggleClick(testModel))
 
-            verify(wifiRepository).scanForWifi()
+            verify(wifiRepository).disableWifi()
         }
 
     @Test
-    fun handleSecondaryClick_whenScanning_pausesWifi() =
+    fun handleSecondaryClick_whenScanning_disablesWifi() =
         testScope.runTest {
             wifiToggleState.value = WifiToggleState.Scanning
 
             underTest.handleInput(QSTileInputTestKtx.toggleClick(testModel))
 
-            verify(wifiRepository).pauseWifi()
+            verify(wifiRepository).disableWifi()
         }
 }

@@ -77,21 +77,22 @@ constructor(
         }
     }
 
-    fun handleSecondaryClick(expandable: Expandable?) {
-        when (wifiRepository.wifiToggleState.value) {
-            WifiToggleState.Normal -> {
-                // If not in a transition, decide based on the Wi-Fi state.
-                if (!wifiRepository.isWifiEnabled.value) {
-                    wifiRepository.enableWifi()
-                } else {
+    suspend fun handleSecondaryClick(expandable: Expandable?) {
+        withContext(mainContext) {
+            when (wifiRepository.wifiToggleState.value) {
+                WifiToggleState.Normal -> {
+                    if (!wifiRepository.isWifiEnabled.value) {
+                        wifiRepository.enableWifi()
+                    } else {
+                        wifiRepository.disableWifi()
+                    }
+                }
+                WifiToggleState.Pausing -> {
                     wifiRepository.disableWifi()
                 }
-            }
-            WifiToggleState.Pausing -> {
-                wifiRepository.disableWifi()
-            }
-            WifiToggleState.Scanning -> {
-                wifiRepository.disableWifi()
+                WifiToggleState.Scanning -> {
+                    wifiRepository.disableWifi()
+                }
             }
         }
     }

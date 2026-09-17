@@ -157,7 +157,7 @@ class WifiTileTest : SysuiTestCase() {
     }
 
     @Test
-    fun secondaryClick_callsUserActionInteractor() {
+    fun secondaryClick_callsUserActionInteractor() = runTest {
         val expandable = mock(Expandable::class.java)
         underTest.secondaryClick(expandable)
         testableLooper.processAllMessages()
