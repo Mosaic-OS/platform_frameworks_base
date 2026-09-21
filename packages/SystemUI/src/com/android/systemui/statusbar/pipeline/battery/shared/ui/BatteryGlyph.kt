@@ -134,6 +134,13 @@ sealed interface BatteryGlyph : Glyph {
         override val height: Float = 9.00f
     }
 
+    data object Pause : BatteryGlyph {
+        override val path: Path = Path().apply { addSvg("M0 0H3V9H0ZM5 0H8V9H5Z") }
+
+        override val width: Float = Defend.width
+        override val height: Float = Defend.height
+    }
+
     data object Question : BatteryGlyph {
         override val path: Path =
             Path().apply {

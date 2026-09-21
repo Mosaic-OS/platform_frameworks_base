@@ -30,6 +30,7 @@ import com.android.systemui.lifecycle.HydratedActivatable
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Charging
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Defend
+import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Pause
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.PowerSave
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryAttributionModel.Unknown
 import com.android.systemui.statusbar.pipeline.battery.domain.interactor.BatteryInteractor
@@ -37,6 +38,7 @@ import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryColors
 import com.android.systemui.statusbar.pipeline.battery.shared.ui.BatteryGlyph
 import dagger.assisted.AssistedFactory
 import dagger.assisted.AssistedInject
+import java.text.NumberFormat
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -86,6 +88,8 @@ sealed class BatteryViewModel(
 
                 Defend -> BatteryGlyph.Defend
 
+                Pause -> BatteryGlyph.Pause
+
                 Unknown -> BatteryGlyph.Question
 
                 else -> null
@@ -97,6 +101,12 @@ sealed class BatteryViewModel(
     private val _colorProfile: Flow<ColorProfile> =
         combine(interactor.batteryAttributionType, interactor.isCritical) { attr, isCritical ->
             when (attr) {
+                Pause ->
+                    ColorProfile(
+                        dark = BatteryColors.DarkTheme.Default,
+                        light = BatteryColors.LightTheme.Default,
+                    )
+
                 Charging,
                 Defend ->
                     ColorProfile(
@@ -136,8 +146,17 @@ sealed class BatteryViewModel(
         )
 
     val contentDescription: ContentDescription by
-        combine(interactor.batteryAttributionType, interactor.level) { attr, level ->
+        combine(interactor.batteryAttributionType, interactor.level, interactor.bypassHeldLevel) {
+                attr, level, heldLevel ->
                 when (attr) {
+                    Pause -> {
+                        val descr =
+                            context.getString(
+                                R.string.bypass_charging_held_level,
+                                NumberFormat.getPercentInstance().format(heldLevel / 100f),
+                            )
+                        ContentDescription.Loaded(descr)
+                    }
                     Defend -> {
                         val descr =
                             context.getString(

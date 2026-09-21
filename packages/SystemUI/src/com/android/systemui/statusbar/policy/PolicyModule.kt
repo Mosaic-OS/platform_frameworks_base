@@ -32,6 +32,7 @@ import com.android.systemui.qs.tiles.AlarmTile
 import com.android.systemui.qs.tiles.BatteryShareTile
 import com.android.systemui.qs.tiles.BluetoothCodecTile
 import com.android.systemui.qs.tiles.CameraToggleTile
+import com.android.systemui.qs.tiles.BypassChargingTile
 import com.android.systemui.qs.tiles.ClipboardShareTile
 import com.android.systemui.qs.tiles.FlashlightTile
 import com.android.systemui.qs.tiles.FlashlightTileWithLevel
@@ -503,6 +504,20 @@ interface PolicyModule {
                 category = TileCategory.UTILITIES,
             )
 
+        @Provides
+        @IntoMap
+        @StringKey(BypassChargingTile.TILE_SPEC)
+        fun provideBypassChargingTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+            QSTileConfig(
+                tileSpec = TileSpec.create(BypassChargingTile.TILE_SPEC),
+                uiConfig = QSTileUIConfig.Resource(
+                    iconRes = R.drawable.ic_bypass_charging,
+                    labelRes = R.string.bypass_charging_title,
+                ),
+                instanceId = uiEventLogger.getNewInstanceId(),
+                category = TileCategory.UTILITIES,
+            )
+
         /** Inject ClipboardShare tile config */
         @Provides
         @IntoMap
@@ -569,6 +584,11 @@ interface PolicyModule {
     @IntoMap
     @StringKey(BatteryShareTile.TILE_SPEC)
     fun bindBatteryShareTile(batteryShareTile: BatteryShareTile): QSTileImpl<*>
+
+    @Binds
+    @IntoMap
+    @StringKey(BypassChargingTile.TILE_SPEC)
+    fun bindBypassChargingTile(tile: BypassChargingTile): QSTileImpl<*>
 
     /** Inject ClipboardShareTile into tileMap in QSModule */
     @Binds

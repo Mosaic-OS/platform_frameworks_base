@@ -22,6 +22,7 @@ import android.widget.ImageView
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
+import com.android.systemui.battery.AccessorizedBatteryDrawable.AccessoryKind
 import com.android.systemui.battery.BatteryMeterView.BatteryEstimateFetcher
 import com.android.systemui.res.R
 import com.android.systemui.statusbar.core.NewStatusBarIcons
@@ -257,7 +258,7 @@ class BatteryMeterViewTest : SysuiTestCase() {
 
         mBatteryMeterView.onIsBatteryDefenderChanged(true)
 
-        assertThat(drawable.displayShield).isTrue()
+        assertThat(drawable.accessoryKind).isEqualTo(AccessoryKind.SHIELD)
     }
 
     @Test
@@ -279,7 +280,7 @@ class BatteryMeterViewTest : SysuiTestCase() {
         // Update to false
         mBatteryMeterView.onIsBatteryDefenderChanged(false)
 
-        assertThat(drawable.displayShield).isFalse()
+        assertThat(drawable.accessoryKind).isEqualTo(AccessoryKind.NONE)
     }
 
     @Test

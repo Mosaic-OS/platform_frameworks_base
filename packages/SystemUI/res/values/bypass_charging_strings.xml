@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; SPDX-License-Identifier: Apache-2.0 -->
+<resources>
+    <string name="bypass_charging_title">Bypass charging</string>
+    <string name="bypass_charging_held_level">Charging on hold at %1$s</string>
+    <string name="bypass_charging_summary">Hold the current battery level while plugged in</string>
+    <string name="bypass_charging_unavailable_service">Unavailable · battery service is missing, restart to check again</string>
+    <string name="bypass_charging_unavailable_hal">Unavailable · battery service call failed, restart to check again</string>
+    <string name="bypass_charging_unavailable_readback">Unavailable · the battery service did not confirm the requested level, restart to check again</string>
+    <string name="bypass_charging_unavailable_level">Unavailable · the current battery level could not be read, restart to check again</string>
+    <string name="bypass_charging_unavailable_recovery">Unavailable · charging state could not be restored, disconnect the adapter and restart the phone</string>
+    <string name="bypass_charging_applying">Applying charging mode…</string>
+    <string name="bypass_charging_connect_power">Connect a power adapter</string>
+    <string name="bypass_charging_unavailable">Unavailable · see Charging optimization</string>
+</resources>

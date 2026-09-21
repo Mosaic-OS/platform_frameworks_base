@@ -7,6 +7,9 @@ interface IGoogleBattery {
         LONGLIFE = 2,
         ADAPTIVE = 3,
     }
+    int getProperty(int feature, int property) = 4;
+    void setProperty(int feature, int property, int value) = 5;
+
     void setChargingPolicy(BatteryChargingPolicy policy) = 22;
 
     String getStringProperty(int feature, int prop) = 23;

@@ -19,6 +19,7 @@ package com.android.systemui.battery
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
+import com.android.systemui.battery.AccessorizedBatteryDrawable.AccessoryKind
 import com.android.systemui.battery.BatterySpecs.BATTERY_HEIGHT
 import com.android.systemui.battery.BatterySpecs.BATTERY_HEIGHT_WITH_SHIELD
 import com.android.systemui.battery.BatterySpecs.BATTERY_WIDTH
@@ -31,9 +32,9 @@ import org.junit.runner.RunWith
 @RunWith(AndroidJUnit4::class)
 class AccessorizedBatteryDrawableTest : SysuiTestCase() {
     @Test
-    fun intrinsicSize_shieldFalse_isBatterySize() {
+    fun intrinsicSize_noAccessory_isBatterySize() {
         val drawable = AccessorizedBatteryDrawable(context, frameColor = 0)
-        drawable.displayShield = false
+        drawable.accessoryKind = AccessoryKind.NONE
 
         val density = context.resources.displayMetrics.density
         assertThat(drawable.intrinsicHeight).isEqualTo((BATTERY_HEIGHT * density).toInt())
@@ -41,9 +42,9 @@ class AccessorizedBatteryDrawableTest : SysuiTestCase() {
     }
 
     @Test
-    fun intrinsicSize_shieldTrue_isBatteryPlusShieldSize() {
+    fun intrinsicSize_shield_isBatteryPlusShieldSize() {
         val drawable = AccessorizedBatteryDrawable(context, frameColor = 0)
-        drawable.displayShield = true
+        drawable.accessoryKind = AccessoryKind.SHIELD
 
         val density = context.resources.displayMetrics.density
         assertThat(drawable.intrinsicHeight)

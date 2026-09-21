@@ -16,11 +16,13 @@
 
 package com.android.systemui.power.dagger;
 
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.ext.power.BatteryChargeLimit;
 import android.os.Handler;
 
 import com.android.internal.logging.UiEventLogger;
+import com.android.systemui.BootReceiver;
 import com.android.systemui.CoreStartable;
 import com.android.systemui.animation.DialogTransitionAnimator;
 import com.android.systemui.broadcast.BroadcastDispatcher;
@@ -28,6 +30,7 @@ import com.android.systemui.broadcast.BroadcastSender;
 import com.android.systemui.dagger.SysUISingleton;
 import com.android.systemui.dagger.qualifiers.Main;
 import com.android.systemui.plugins.ActivityStarter;
+import com.android.systemui.power.BatteryBypassChargingController;
 import com.android.systemui.power.EnhancedEstimates;
 import com.android.systemui.power.EnhancedEstimatesImpl;
 import com.android.systemui.power.PowerNotificationWarnings;
@@ -55,6 +58,17 @@ import dagger.multibindings.IntoSet;
         }
 )
 public interface PowerModule {
+    @Binds
+    @IntoMap
+    @ClassKey(BatteryBypassChargingController.class)
+    CoreStartable bindBatteryBypassChargingController(
+            BatteryBypassChargingController controller);
+
+    @Binds
+    @IntoMap
+    @ClassKey(BootReceiver.class)
+    BroadcastReceiver bindBootReceiver(BootReceiver receiver);
+
     /** Starts PowerUI.  */
     @Binds
     @IntoMap

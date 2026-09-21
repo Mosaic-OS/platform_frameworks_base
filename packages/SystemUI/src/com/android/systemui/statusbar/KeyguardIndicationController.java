@@ -66,6 +66,8 @@ import android.content.IntentFilter;
 import android.content.pm.UserInfo;
 import android.content.res.ColorStateList;
 import android.content.res.Resources;
+import android.database.ContentObserver;
+import android.ext.power.BatteryBypassCharging;
 import android.ext.power.BatteryChargeLimit;
 import android.graphics.Color;
 import android.hardware.biometrics.BiometricSourceType;
@@ -76,6 +78,7 @@ import android.os.Message;
 import android.os.RemoteException;
 import android.os.UserHandle;
 import android.os.UserManager;
+import android.provider.Settings;
 import android.text.TextUtils;
 import android.text.format.Formatter;
 import android.util.Pair;
@@ -400,12 +403,26 @@ public class KeyguardIndicationController {
         );
     }
 
+    private ContentObserver mBypassObserver;
+    private BatteryStatus mLastBatteryStatus;
+
     /** Call this after construction to finish setting up the instance. */
     public void init() {
         if (mInited) {
             return;
         }
         mInited = true;
+        mBypassObserver = new ContentObserver(mHandler) {
+            @Override
+            public void onChange(boolean selfChange) {
+                if (mLastBatteryStatus != null) {
+                    getKeyguardCallback().onRefreshBatteryInfo(mLastBatteryStatus);
+                }
+            }
+        };
+        mContext.getContentResolver().registerContentObserver(
+                Settings.Global.getUriFor(Settings.Global.BATTERY_BYPASS_STATE),
+                false, mBypassObserver);
 
         mDockManager.addAlignmentStateListener(
                 alignState -> mExecutor.execute(() -> handleAlignStateChanged(alignState)));
@@ -491,6 +508,9 @@ public class KeyguardIndicationController {
      * Cleanup
      */
     public void destroy() {
+        if (mBypassObserver != null) {
+            mContext.getContentResolver().unregisterContentObserver(mBypassObserver);
+        }
         mHandler.removeCallbacksAndMessages(null);
         mHideBiometricMessageHandler.cancel();
         mHideTransientMessageHandler.cancel();
@@ -673,6 +693,9 @@ public class KeyguardIndicationController {
                     INDICATION_TYPE_BATTERY,
                     new KeyguardIndication.Builder()
                             .setMessage(powerIndication)
+                            .setIcon(mPowerPluggedIn
+                                    && BatteryBypassCharging.getHeldLevel(mContext) > 0
+                                    ? mContext.getDrawable(R.drawable.ic_bypass_charging) : null)
                             .setTextColor(getInitialTextColorState())
                             .build(),
                     animate);
@@ -1235,6 +1258,9 @@ public class KeyguardIndicationController {
      * Assumption: device is charging
      */
     protected String computePowerIndication() {
+        if (mPowerPluggedIn && BatteryBypassCharging.getHeldLevel(mContext) > 0) {
+            return computePowerChargingStringIndication();
+        }
         if (mBatteryDefender) {
             String percentage = NumberFormat.getPercentInstance().format(mBatteryLevel / 100f);
             return mContext.getResources().getString(
@@ -1250,6 +1276,11 @@ public class KeyguardIndicationController {
 
     protected String computePowerChargingStringIndication() {
         Context context = mContext;
+        int held = BatteryBypassCharging.getHeldLevel(context);
+        if (mPowerPluggedIn && held > 0) {
+            return context.getString(R.string.bypass_charging_held_level,
+                    NumberFormat.getPercentInstance().format(held / 100f));
+        }
         if (BatteryChargeLimit.isChargeLimitEnabled(context)) {
             String percentage = NumberFormat.getPercentInstance().format(mBatteryLevel / 100f);
 
@@ -1458,6 +1489,7 @@ public class KeyguardIndicationController {
          */
         @Override
         public void onRefreshBatteryInfo(BatteryStatus status) {
+            mLastBatteryStatus = status;
             boolean isChargingOrFull = status.status == BatteryManager.BATTERY_STATUS_CHARGING
                     || status.isCharged();
             boolean wasPluggedIn = mPowerPluggedIn;
@@ -1754,6 +1786,9 @@ public class KeyguardIndicationController {
     protected boolean isPowerPluggedIn(BatteryStatus status, boolean isChargingOrFull) {
         if (!status.isPluggedIn()) {
             return false;
+        }
+        if (BatteryBypassCharging.getHeldLevel(mContext) > 0) {
+            return true;
         }
         if (status.level >= BatteryChargeLimit.CHARGE_LEVEL && BatteryChargeLimit.isChargeLimitEnabled(mContext)) {
             return true;

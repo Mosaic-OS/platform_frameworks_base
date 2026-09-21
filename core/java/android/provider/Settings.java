@@ -14672,8 +14672,20 @@ public final class Settings {
         public static final String WIDEVINE_PROVISIONING_SERVER = "widevine_provisioner_server";
 
         /** @hide */
-        @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
+        @Protected(readWrite = {KnownSystemPackage.SETTINGS, KnownSystemPackage.SYSTEM_UI})
         public static final String BATTERY_CHARGE_LIMIT = "battery_charge_limit";
+
+        /** @hide */
+        @Protected(read = KnownSystemPackage.SETTINGS, readWrite = KnownSystemPackage.SYSTEM_UI)
+        public static final String BATTERY_BYPASS_CHARGING = "battery_bypass_charging";
+
+        /** @hide */
+        @Protected(readWrite = {KnownSystemPackage.SETTINGS, KnownSystemPackage.SYSTEM_UI})
+        public static final String BATTERY_CHARGING_MODE_REQUEST = "battery_charging_mode_request";
+
+        /** @hide */
+        @Protected(read = KnownSystemPackage.SETTINGS, readWrite = KnownSystemPackage.SYSTEM_UI)
+        public static final String BATTERY_BYPASS_STATE = "battery_bypass_state";
 
         /** @hide */
         @Protected(restrictReads = false, readWrite = {KnownSystemPackage.SETTINGS,

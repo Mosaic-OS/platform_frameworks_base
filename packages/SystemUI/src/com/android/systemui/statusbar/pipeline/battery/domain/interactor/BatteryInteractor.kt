@@ -68,6 +68,8 @@ class BatteryInteractor @Inject constructor(repo: BatteryRepository) {
     /** @see [BatteryRepository.isBatteryDefenderEnabled] */
     val isBatteryDefenderEnabled = repo.isBatteryDefenderEnabled
 
+    val bypassHeldLevel = repo.bypassHeldLevel
+
     /** @see [BatteryRepository.isPowerSaveEnabled] */
     val powerSave = repo.isPowerSaveEnabled
 
@@ -82,13 +84,16 @@ class BatteryInteractor @Inject constructor(repo: BatteryRepository) {
      * This flow can be used to canonically describe the battery state charging state.
      */
     val batteryAttributionType =
-        combine(isCharging, powerSave, isBatteryDefenderEnabled, isStateUnknown) {
+        combine(isCharging, powerSave, isBatteryDefenderEnabled, isStateUnknown, bypassHeldLevel) {
             charging,
             powerSave,
             defend,
-            unknown ->
+            unknown,
+            heldLevel ->
             if (unknown) {
                 BatteryAttributionModel.Unknown
+            } else if (heldLevel > 0) {
+                BatteryAttributionModel.Pause
             } else if (powerSave) {
                 BatteryAttributionModel.PowerSave
             } else if (defend) {
@@ -114,6 +119,7 @@ class BatteryInteractor @Inject constructor(repo: BatteryRepository) {
 /** The charging state, and therefore attribution for the battery */
 enum class BatteryAttributionModel {
     Defend,
+    Pause,
     PowerSave,
     Charging,
     Unknown,

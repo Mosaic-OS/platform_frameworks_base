@@ -28,6 +28,7 @@ import android.annotation.IntRange;
 import android.annotation.Nullable;
 import android.annotation.SuppressLint;
 import android.content.Context;
+import android.ext.power.BatteryBypassCharging;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.content.res.TypedArray;
@@ -49,6 +50,7 @@ import androidx.annotation.VisibleForTesting;
 
 import com.android.app.animation.Interpolators;
 import com.android.systemui.DualToneHandler;
+import com.android.systemui.battery.AccessorizedBatteryDrawable.AccessoryKind;
 import com.android.systemui.battery.unified.BatteryColors;
 import com.android.systemui.battery.unified.BatteryDrawableState;
 import com.android.systemui.battery.unified.BatteryLayersDrawable;
@@ -238,6 +240,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         boolean wasCharging = isCharging();
         mPluggedIn = pluggedIn;
         mLevel = level;
+        boolean accessoryChanged = updateBatteryAccessory();
         boolean isCharging = isCharging();
         mDrawable.setCharging(isCharging);
         mDrawable.setBatteryLevel(level);
@@ -245,7 +248,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
 
         if (NewStatusBarIcons.isEnabled()) {
             Drawable attr = mUnifiedBatteryState.getAttribution();
-            if (isCharging != wasCharging) {
+            if (isCharging != wasCharging || accessoryChanged) {
                 attr = getBatteryAttribution(isCharging);
             }
 
@@ -267,7 +270,9 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         if (!NewStatusBarIcons.isEnabled()) return null;
 
         int resId = 0;
-        if (mPowerSaveEnabled) {
+        if (mDrawable.getAccessoryKind() == AccessoryKind.PAUSE) {
+            resId = R.drawable.battery_unified_attr_pause;
+        } else if (mPowerSaveEnabled) {
             resId = R.drawable.battery_unified_attr_powersave;
         } else if (mIsBatteryDefender) {
             resId = R.drawable.battery_unified_attr_defend;
@@ -285,6 +290,7 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
 
     /** Calculate the appropriate color for the current state */
     private ColorProfile getCurrentColorProfile() {
+        if (mDrawable.getAccessoryKind() == AccessoryKind.PAUSE) return ColorProfile.None;
         return getColorProfile(
                 mPowerSaveEnabled,
                 mIsBatteryDefender,
@@ -329,17 +335,14 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
     void onIsBatteryDefenderChanged(boolean isBatteryDefender) {
         boolean valueChanged = mIsBatteryDefender != isBatteryDefender;
         mIsBatteryDefender = isBatteryDefender;
+        boolean accessoryChanged = updateBatteryAccessory();
 
-        if (!valueChanged) {
+        if (!valueChanged && !accessoryChanged) {
             return;
         }
 
         updateContentDescription();
-        if (!NewStatusBarIcons.isEnabled()) {
-            // The battery drawable is a different size depending on whether it's currently
-            // overheated or not, so we need to re-scale the view when overheated changes.
-            scaleBatteryMeterViews();
-        } else {
+        if (NewStatusBarIcons.isEnabled()) {
             setBatteryDrawableState(
                     new BatteryDrawableState(
                             mUnifiedBatteryState.getLevel(),
@@ -349,6 +352,20 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
                     )
             );
         }
+    }
+
+    private boolean updateBatteryAccessory() {
+        AccessoryKind kind = mPluggedIn && BatteryBypassCharging.getHeldLevel(getContext()) > 0
+                ? AccessoryKind.PAUSE
+                : mIsBatteryDefender ? AccessoryKind.SHIELD : AccessoryKind.NONE;
+        if (mDrawable.getAccessoryKind() == kind) {
+            return false;
+        }
+        mDrawable.setAccessoryKind(kind);
+        if (!NewStatusBarIcons.isEnabled()) {
+            scaleBatteryMeterViews();
+        }
+        return true;
     }
 
     void onIsIncompatibleChargingChanged(boolean isIncompatibleCharging) {
@@ -501,6 +518,10 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         String contentDescription;
         if (mBatteryStateUnknown) {
             contentDescription = context.getString(R.string.accessibility_battery_unknown);
+        } else if (mPluggedIn && BatteryBypassCharging.getHeldLevel(context) > 0) {
+            contentDescription = context.getString(R.string.bypass_charging_held_level,
+                    NumberFormat.getPercentInstance().format(
+                            BatteryBypassCharging.getHeldLevel(context) / 100f));
         } else if (mShowPercentMode == MODE_ESTIMATE && !TextUtils.isEmpty(mEstimateText)) {
             contentDescription = context.getString(
                     mIsBatteryDefender
@@ -654,16 +675,15 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
         float mainBatteryWidth =
                 res.getDimensionPixelSize(R.dimen.status_bar_battery_icon_width) * iconScaleFactor;
 
-        boolean displayShield = mIsBatteryDefender;
+        boolean hasAccessory = mDrawable.getAccessoryKind() != AccessoryKind.NONE;
         float fullBatteryIconHeight =
-                BatterySpecs.getFullBatteryHeight(mainBatteryHeight, displayShield);
+                BatterySpecs.getFullBatteryHeight(mainBatteryHeight, hasAccessory);
         float fullBatteryIconWidth =
-                BatterySpecs.getFullBatteryWidth(mainBatteryWidth, displayShield);
+                BatterySpecs.getFullBatteryWidth(mainBatteryWidth, hasAccessory);
 
         int marginTop;
-        if (displayShield) {
-            // If the shield is displayed, we need some extra marginTop so that the bottom of the
-            // main icon is still aligned with the bottom of all the other system icons.
+        if (hasAccessory) {
+            // The accessory extends below the main battery, which must stay aligned with other icons.
             int shieldHeightAddition = Math.round(fullBatteryIconHeight - mainBatteryHeight);
             // However, the other system icons have some embedded bottom padding that the battery
             // doesn't have, so we shouldn't move the battery icon down by the full amount.
@@ -681,7 +701,6 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
                 Math.round(fullBatteryIconHeight));
         scaledLayoutParams.setMargins(0, marginTop, 0, marginBottom);
 
-        mDrawable.setDisplayShield(displayShield);
         mBatteryIconView.setLayoutParams(scaledLayoutParams);
         mBatteryIconView.invalidateDrawable(mDrawable);
     }
@@ -758,17 +777,18 @@ public class BatteryMeterView extends LinearLayout implements DarkReceiver {
 
     @VisibleForTesting
     boolean isCharging() {
-        return mPluggedIn && !mIsIncompatibleCharging;
+        return mPluggedIn && !mIsIncompatibleCharging
+                && BatteryBypassCharging.getHeldLevel(getContext()) == 0;
     }
 
     public void dump(PrintWriter pw, String[] args) {
         String powerSave = mDrawable == null ? null : mDrawable.getPowerSaveEnabled() + "";
-        String displayShield = mDrawable == null ? null : mDrawable.getDisplayShield() + "";
+        String accessoryKind = mDrawable == null ? null : mDrawable.getAccessoryKind() + "";
         String charging = mDrawable == null ? null : mDrawable.getCharging() + "";
         CharSequence percent = mBatteryPercentView == null ? null : mBatteryPercentView.getText();
         pw.println("  BatteryMeterView:");
         pw.println("    mDrawable.getPowerSave: " + powerSave);
-        pw.println("    mDrawable.getDisplayShield: " + displayShield);
+        pw.println("    mDrawable.getAccessoryKind: " + accessoryKind);
         pw.println("    mDrawable.getCharging: " + charging);
         pw.println("    mBatteryPercentView.getText(): " + percent);
         pw.println("    mTextColor: #" + Integer.toHexString(mTextColor));

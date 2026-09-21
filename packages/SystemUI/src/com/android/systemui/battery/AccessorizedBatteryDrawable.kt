@@ -37,32 +37,29 @@ import com.android.systemui.battery.BatterySpecs.SHIELD_LEFT_OFFSET
 import com.android.systemui.battery.BatterySpecs.SHIELD_STROKE
 import com.android.systemui.battery.BatterySpecs.SHIELD_TOP_OFFSET
 
-/**
- * A battery drawable that accessorizes [ThemedBatteryDrawable] with additional information if
- * necessary.
- *
- * For now, it adds a shield in the bottom-right corner when [displayShield] is true.
- */
 class AccessorizedBatteryDrawable(
     private val context: Context,
     frameColor: Int,
 ) : DrawableWrapper(ThemedBatteryDrawable(context, frameColor)) {
+    enum class AccessoryKind { NONE, SHIELD, PAUSE }
+
     private val mainBatteryDrawable: ThemedBatteryDrawable
         get() = drawable as ThemedBatteryDrawable
 
     private val shieldPath = Path()
-    private val scaledShield = Path()
+    private val pausePath = Path()
+    private val scaledAccessory = Path()
     private val scaleMatrix = Matrix()
 
-    private var shieldLeftOffsetScaled = SHIELD_LEFT_OFFSET
-    private var shieldTopOffsetScaled = SHIELD_TOP_OFFSET
+    private var accessoryLeftOffsetScaled = SHIELD_LEFT_OFFSET
+    private var accessoryTopOffsetScaled = SHIELD_TOP_OFFSET
 
     private var density = context.resources.displayMetrics.density
 
     private val dualTone =
         context.resources.getBoolean(com.android.internal.R.bool.config_batterymeterDualTone)
 
-    private val shieldTransparentOutlinePaint =
+    private val accessoryTransparentOutlinePaint =
         Paint(Paint.ANTI_ALIAS_FLAG).also { p ->
             p.color = Color.TRANSPARENT
             p.strokeWidth = ThemedBatteryDrawable.PROTECTION_MIN_STROKE_WIDTH
@@ -70,7 +67,7 @@ class AccessorizedBatteryDrawable(
             p.style = Paint.Style.FILL_AND_STROKE
         }
 
-    private val shieldPaint =
+    private val accessoryPaint =
         Paint(Paint.ANTI_ALIAS_FLAG).also { p ->
             p.color = Color.MAGENTA
             p.style = Paint.Style.FILL
@@ -86,11 +83,16 @@ class AccessorizedBatteryDrawable(
         updateSizes()
     }
 
-    var displayShield: Boolean = false
+    var accessoryKind: AccessoryKind = AccessoryKind.NONE
         set(value) {
+            if (field == value) return
             field = value
+            updateSizes()
             postInvalidate()
         }
+
+    private val hasAccessory: Boolean
+        get() = accessoryKind != AccessoryKind.NONE
 
     private fun updateSizes() {
         val b = bounds
@@ -98,8 +100,8 @@ class AccessorizedBatteryDrawable(
             return
         }
 
-        val mainWidth = BatterySpecs.getMainBatteryWidth(b.width().toFloat(), displayShield)
-        val mainHeight = BatterySpecs.getMainBatteryHeight(b.height().toFloat(), displayShield)
+        val mainWidth = BatterySpecs.getMainBatteryWidth(b.width().toFloat(), hasAccessory)
+        val mainHeight = BatterySpecs.getMainBatteryHeight(b.height().toFloat(), hasAccessory)
 
         drawable?.setBounds(
             b.left,
@@ -108,26 +110,27 @@ class AccessorizedBatteryDrawable(
             /* bottom= */ b.top + mainHeight.toInt()
         )
 
-        if (displayShield) {
+        if (hasAccessory) {
             val sx = b.right / BATTERY_WIDTH_WITH_SHIELD
             val sy = b.bottom / BATTERY_HEIGHT_WITH_SHIELD
             scaleMatrix.setScale(sx, sy)
-            shieldPath.transform(scaleMatrix, scaledShield)
+            val path = if (accessoryKind == AccessoryKind.PAUSE) pausePath else shieldPath
+            path.transform(scaleMatrix, scaledAccessory)
 
-            shieldLeftOffsetScaled = sx * SHIELD_LEFT_OFFSET
-            shieldTopOffsetScaled = sy * SHIELD_TOP_OFFSET
+            accessoryLeftOffsetScaled = sx * SHIELD_LEFT_OFFSET
+            accessoryTopOffsetScaled = sy * SHIELD_TOP_OFFSET
 
             val scaledStrokeWidth =
                 (sx * SHIELD_STROKE).coerceAtLeast(
                     ThemedBatteryDrawable.PROTECTION_MIN_STROKE_WIDTH
                 )
-            shieldTransparentOutlinePaint.strokeWidth = scaledStrokeWidth
+            accessoryTransparentOutlinePaint.strokeWidth = scaledStrokeWidth
         }
     }
 
     override fun getIntrinsicHeight(): Int {
         val height =
-            if (displayShield) {
+            if (hasAccessory) {
                 BATTERY_HEIGHT_WITH_SHIELD
             } else {
                 BATTERY_HEIGHT
@@ -137,7 +140,7 @@ class AccessorizedBatteryDrawable(
 
     override fun getIntrinsicWidth(): Int {
         val width =
-            if (displayShield) {
+            if (hasAccessory) {
                 BATTERY_WIDTH_WITH_SHIELD
             } else {
                 BATTERY_WIDTH
@@ -147,15 +150,13 @@ class AccessorizedBatteryDrawable(
 
     override fun draw(c: Canvas) {
         c.saveLayer(null, null)
-        // Draw the main battery icon
         super.draw(c)
 
-        if (displayShield) {
-            c.translate(shieldLeftOffsetScaled, shieldTopOffsetScaled)
-            // We need a transparent outline around the shield, so first draw the transparent-ness
-            // then draw the shield
-            c.drawPath(scaledShield, shieldTransparentOutlinePaint)
-            c.drawPath(scaledShield, shieldPaint)
+        if (hasAccessory) {
+            c.translate(accessoryLeftOffsetScaled, accessoryTopOffsetScaled)
+            // Clear the battery behind the accessory so its silhouette stays legible.
+            c.drawPath(scaledAccessory, accessoryTransparentOutlinePaint)
+            c.drawPath(scaledAccessory, accessoryPaint)
         }
         c.restore()
     }
@@ -170,7 +171,7 @@ class AccessorizedBatteryDrawable(
 
     override fun setColorFilter(colorfilter: ColorFilter?) {
         super.setColorFilter(colorFilter)
-        shieldPaint.colorFilter = colorFilter
+        accessoryPaint.colorFilter = colorFilter
     }
 
     /** Sets whether the battery is currently charging. */
@@ -200,7 +201,7 @@ class AccessorizedBatteryDrawable(
 
     /** Sets the colors to use for the icon. */
     fun setColors(fgColor: Int, bgColor: Int, singleToneColor: Int) {
-        shieldPaint.color = if (dualTone) fgColor else singleToneColor
+        accessoryPaint.color = if (dualTone) fgColor else singleToneColor
         mainBatteryDrawable.setColors(fgColor, bgColor, singleToneColor)
     }
 
@@ -212,6 +213,8 @@ class AccessorizedBatteryDrawable(
     private fun loadPaths() {
         val shieldPathString = context.resources.getString(R.string.config_batterymeterShieldPath)
         shieldPath.set(PathParser.createPathFromPathData(shieldPathString))
+        val pausePathString = context.resources.getString(R.string.config_batterymeterPausePath)
+        pausePath.set(PathParser.createPathFromPathData(pausePathString))
     }
 
     private val invalidateRunnable: () -> Unit = { invalidateSelf() }

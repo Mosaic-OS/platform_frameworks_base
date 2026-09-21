@@ -17,6 +17,7 @@
 package com.android.systemui.statusbar.pipeline.battery.data.repository
 
 import android.content.Context
+import android.ext.power.BatteryBypassCharging
 import android.provider.Settings
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.dagger.qualifiers.Application
@@ -60,6 +61,8 @@ interface BatteryRepository {
 
     /** Battery defender means the device is plugged in but not charging to protect the battery */
     val isBatteryDefenderEnabled: Flow<Boolean>
+
+    val bypassHeldLevel: Flow<Int>
 
     /** True if the system has detected an incompatible charger (and thus is not charging) */
     val isIncompatibleCharging: Flow<Boolean>
@@ -110,7 +113,15 @@ constructor(
                             pluggedIn: Boolean,
                             charging: Boolean,
                         ) {
-                            trySend { prev -> prev.copy(level = level, isPluggedIn = pluggedIn) }
+                            val heldLevel =
+                                if (pluggedIn) BatteryBypassCharging.getHeldLevel(context) else 0
+                            trySend { prev ->
+                                prev.copy(
+                                    level = level,
+                                    isPluggedIn = pluggedIn,
+                                    bypassHeldLevel = heldLevel,
+                                )
+                            }
                         }
 
                         override fun onPowerSaveChanged(isPowerSave: Boolean) {
@@ -207,6 +218,17 @@ constructor(
                 batteryState.value.isBatteryDefenderEnabled,
             )
 
+    override val bypassHeldLevel =
+        batteryState
+            .map { it.bypassHeldLevel }
+            .distinctUntilChanged()
+            .logDiffsForTable(
+                tableLogBuffer = tableLog,
+                columnName = COL_BYPASS_HELD_LEVEL,
+                initialValue = batteryState.value.bypassHeldLevel,
+            )
+            .stateIn(scope, SharingStarted.WhileSubscribed(), batteryState.value.bypassHeldLevel)
+
     override val isIncompatibleCharging =
         batteryState
             .map { it.isIncompatibleCharging }
@@ -293,6 +315,7 @@ constructor(
         private const val COL_POWER_SAVE = "powerSave"
         private const val COL_EXTREME_POWER_SAVE = "extremePowerSave"
         private const val COL_DEFEND = "defend"
+        private const val COL_BYPASS_HELD_LEVEL = "bypassHeldLevel"
         private const val COL_INCOMPATIBLE_CHARGING = "incompatibleCharging"
         private const val COL_LEVEL = "level"
         private const val COL_UNKNOWN = "unknown"
@@ -308,6 +331,7 @@ private data class BatteryCallbackState(
     val isPowerSaveEnabled: Boolean = false,
     val isExtremePowerSaveEnabled: Boolean = false,
     val isBatteryDefenderEnabled: Boolean = false,
+    val bypassHeldLevel: Int = 0,
     val isStateUnknown: Boolean = false,
     val isIncompatibleCharging: Boolean = false,
 )
