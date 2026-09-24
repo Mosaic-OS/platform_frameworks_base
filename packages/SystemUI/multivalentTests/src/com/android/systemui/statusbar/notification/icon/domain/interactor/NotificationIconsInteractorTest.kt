@@ -15,7 +15,11 @@
 
 package com.android.systemui.statusbar.notification.icon.domain.interactor
 
+import android.app.NotificationManager.IMPORTANCE_DEFAULT
+import android.app.NotificationManager.IMPORTANCE_LOW
+import android.app.NotificationManager.IMPORTANCE_MIN
 import android.content.applicationContext
+import android.graphics.drawable.Icon
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.filters.SmallTest
 import com.android.systemui.SysuiTestCase
@@ -23,6 +27,7 @@ import com.android.systemui.coroutines.collectLastValue
 import com.android.systemui.deviceentry.data.repository.fakeDeviceEntryBypassRepository
 import com.android.systemui.kosmos.testDispatcher
 import com.android.systemui.kosmos.testScope
+import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
 import com.android.systemui.statusbar.data.repository.notificationListenerSettingsRepository
 import com.android.systemui.statusbar.notification.data.model.activeNotificationModel
 import com.android.systemui.statusbar.notification.data.repository.ActiveNotificationsStore
@@ -32,6 +37,7 @@ import com.android.systemui.statusbar.notification.data.repository.getPopulatedA
 import com.android.systemui.statusbar.notification.data.repository.notificationsKeyguardViewStateRepository
 import com.android.systemui.statusbar.notification.promoted.domain.interactor.aodPromotedNotificationInteractor
 import com.android.systemui.statusbar.notification.shared.ActiveBundleModel
+import com.android.systemui.statusbar.notification.shared.ActiveNotificationGroupModel
 import com.android.systemui.statusbar.notification.shared.ActiveNotificationModel
 import com.android.systemui.statusbar.notification.shared.ActivePipelineEntryModel
 import com.android.systemui.statusbar.notification.shared.byAssociatedNotifModel
@@ -317,6 +323,7 @@ class StatusBarNotificationIconsInteractorTest : SysuiTestCase() {
             kosmos.testDispatcher,
             kosmos.notificationIconsInteractor,
             kosmos.notificationListenerSettingsRepository,
+            kosmos.secureSettingsRepository,
         )
 
     private val activeNotificationListRepository
@@ -355,6 +362,114 @@ class StatusBarNotificationIconsInteractorTest : SysuiTestCase() {
                             (it is ActiveBundleModel && it.key == "bundle2")
                     }
                 )
+        }
+
+    @Test
+    fun importanceFilter_defaultOff_toggleAndRankingUpdate() =
+        testScope.runTest {
+            val minimum =
+                activeNotificationModel("minimum", groupKey = "minimum", importance = IMPORTANCE_MIN)
+            val low = activeNotificationModel("low", groupKey = "low", importance = IMPORTANCE_LOW)
+            val normal =
+                activeNotificationModel("normal", groupKey = "normal", importance = IMPORTANCE_DEFAULT)
+            fun publish(minimumModel: ActiveNotificationModel) {
+                activeNotificationListRepository.activeNotifications.value =
+                    ActiveNotificationsStore.Builder().apply {
+                        addIndividualNotif(minimumModel)
+                        addIndividualNotif(low)
+                        addIndividualNotif(normal)
+                    }.build()
+            }
+            publish(minimum)
+            val icons by collectLastValue(underTest.statusBarNotifs)
+            assertThat(icons)
+                .comparingElementsUsing(byIconNotifKey)
+                .containsExactly("minimum", "low", "normal")
+
+            kosmos.secureSettingsRepository.setBoolean(
+                "mosaic_status_bar_hide_low_priority_icons", true
+            )
+            assertThat(icons).comparingElementsUsing(byIconNotifKey).containsExactly("low", "normal")
+            publish(minimum.copy(importance = IMPORTANCE_LOW))
+            assertThat(icons)
+                .comparingElementsUsing(byIconNotifKey)
+                .containsExactly("minimum", "low", "normal")
+            publish(minimum)
+            assertThat(icons).comparingElementsUsing(byIconNotifKey).containsExactly("low", "normal")
+
+            kosmos.secureSettingsRepository.setBoolean(
+                "mosaic_status_bar_hide_low_priority_icons", false
+            )
+            assertThat(icons)
+                .comparingElementsUsing(byIconNotifKey)
+                .containsExactly("minimum", "low", "normal")
+        }
+
+    @Test
+    fun importanceFilter_keepsOtherSurfacesAndSilentPolicy() =
+        testScope.runTest {
+            val minimum =
+                activeNotificationModel("minimum", groupKey = "minimum", importance = IMPORTANCE_MIN)
+            val silent =
+                activeNotificationModel(
+                    "silent",
+                    groupKey = "silent",
+                    importance = IMPORTANCE_LOW,
+                    isSilent = true,
+                )
+            activeNotificationListRepository.activeNotifications.value =
+                ActiveNotificationsStore.Builder().apply {
+                    addIndividualNotif(minimum)
+                    addIndividualNotif(silent)
+                }.build()
+            kosmos.notificationListenerSettingsRepository.showSilentStatusIcons.value = true
+            val icons by collectLastValue(underTest.statusBarNotifs)
+            val shelf by collectLastValue(kosmos.notificationIconsInteractor.filteredNotifSet())
+            val aod by collectLastValue(kosmos.alwaysOnDisplayNotificationIconsInteractor.aodNotifs)
+            kosmos.secureSettingsRepository.setBoolean(
+                "mosaic_status_bar_hide_low_priority_icons", true
+            )
+            assertThat(icons).comparingElementsUsing(byIconNotifKey).containsExactly("silent")
+            assertThat(shelf).comparingElementsUsing(byIconNotifKey).containsExactly("minimum", "silent")
+            assertThat(aod).comparingElementsUsing(byIconNotifKey).containsExactly("minimum", "silent")
+
+            kosmos.notificationListenerSettingsRepository.showSilentStatusIcons.value = false
+            assertThat(icons).isEmpty()
+            kosmos.secureSettingsRepository.setBoolean(
+                "mosaic_status_bar_hide_low_priority_icons", false
+            )
+            assertThat(icons).comparingElementsUsing(byIconNotifKey).containsExactly("minimum")
+        }
+
+    @Test
+    fun importanceFilter_groupsAndBundles() =
+        testScope.runTest {
+            val minimum =
+                activeNotificationModel("minimum", groupKey = "minimum", importance = IMPORTANCE_MIN)
+            val low = activeNotificationModel("low", groupKey = "low", importance = IMPORTANCE_LOW)
+            val icon = Icon.createWithResource(context, android.R.drawable.ic_dialog_info)
+            activeNotificationListRepository.activeNotifications.value =
+                ActiveNotificationsStore.Builder().apply {
+                    addNotifGroup(ActiveNotificationGroupModel("minGroup", minimum, listOf(low)))
+                    addNotifGroup(ActiveNotificationGroupModel("lowGroup", low, listOf(minimum)))
+                    addBundle(ActiveBundleModel("minBundle", icon, listOf(minimum)))
+                    addBundle(ActiveBundleModel("mixedBundle", icon, listOf(minimum, low)))
+                    addBundle(
+                        ActiveBundleModel(
+                            "groupBundle",
+                            icon,
+                            listOf(ActiveNotificationGroupModel("nested", minimum, listOf(low))),
+                        )
+                    )
+                }.build()
+            kosmos.notificationListenerSettingsRepository.showSilentStatusIcons.value = true
+            val icons by collectLastValue(underTest.statusBarNotifs)
+            kosmos.secureSettingsRepository.setBoolean(
+                "mosaic_status_bar_hide_low_priority_icons", true
+            )
+            assertThat(icons)
+                .comparingElementsUsing(byIconNotifKey)
+                .containsExactly("low", "mixedBundle", "groupBundle")
         }
 
     @Test

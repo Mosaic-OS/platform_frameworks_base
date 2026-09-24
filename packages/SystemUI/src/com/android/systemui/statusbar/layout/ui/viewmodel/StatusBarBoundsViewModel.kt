@@ -18,9 +18,11 @@ package com.android.systemui.statusbar.layout.ui.viewmodel
 
 import android.graphics.Rect
 import android.view.View
+import android.view.ViewTreeObserver
 import androidx.compose.runtime.getValue
 import com.android.systemui.clock.ClockModernization
 import com.android.systemui.lifecycle.HydratedActivatable
+import com.android.systemui.res.R
 import com.android.systemui.statusbar.policy.Clock
 import com.android.systemui.util.boundsOnScreen
 import com.android.systemui.utils.coroutines.flow.conflatedCallbackFlow
@@ -30,6 +32,8 @@ import dagger.assisted.AssistedInject
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 
 /**
  * View model for on-screen bounds of elements related to the status bar.
@@ -84,15 +88,38 @@ constructor(
         awaitClose { clockView.removeOnLayoutChangeListener(layoutListener) }
     }
 
+    private val _clockContainerBounds: Flow<Rect> = flow {
+        val clockContainer =
+            clockView.rootView?.findViewById<View>(R.id.status_bar_clock_container)
+        if (clockContainer == null) {
+            emitAll(if (ClockModernization.isEnabled) _composeClockBounds else _clockBounds)
+        } else {
+            emitAll(
+                conflatedCallbackFlow {
+                    val content = clockContainer.findViewById<View>(R.id.status_bar_clock_content)
+                    fun currentBounds() =
+                        if (content?.visibility == View.GONE) Rect() else clockContainer.boundsOnScreen
+                    val observer = clockContainer.viewTreeObserver
+                    val layoutListener = ViewTreeObserver.OnGlobalLayoutListener {
+                        trySend(currentBounds())
+                    }
+                    observer.addOnGlobalLayoutListener(layoutListener)
+                    trySend(currentBounds())
+                    awaitClose {
+                        if (observer.isAlive) observer.removeOnGlobalLayoutListener(layoutListener)
+                    }
+                }
+            )
+        }
+    }
+
     /** The on-screen bounds of the status bar clock. This is a hydrated value. */
     // TODO(b/390204943): Re-implement this in Compose once the Clock is a Composable.
     val clockBounds: Rect by
-        if (ClockModernization.isEnabled) {
-                _composeClockBounds
-            } else {
-                _clockBounds
-            }
-            .hydratedStateOf(traceName = "StatusBar.clockBounds", initialValue = Rect())
+        _clockContainerBounds.hydratedStateOf(
+            traceName = "StatusBar.clockBounds",
+            initialValue = Rect(),
+        )
 
     fun updateDateBounds(bounds: Rect) {
         _dateBounds.value = bounds

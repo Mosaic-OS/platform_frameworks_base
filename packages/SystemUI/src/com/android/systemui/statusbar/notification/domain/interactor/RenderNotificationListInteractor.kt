@@ -203,6 +203,7 @@ private class ActiveNotificationsStoreBuilder(
             isForegroundService = sbn.notification.isForegroundService,
             isOngoingEvent = (sbn.notification.flags and FLAG_ONGOING_EVENT) != 0,
             isAmbient = sectionStyleProvider.isMinimized(this),
+            importance = importance,
             isRowDismissed = isRowDismissed,
             isSilent = sectionStyleProvider.isSilent(this),
             isLastMessageFromReply = isLastMessageFromReply,
@@ -239,6 +240,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
     isForegroundService: Boolean,
     isOngoingEvent: Boolean,
     isAmbient: Boolean,
+    importance: Int,
     isRowDismissed: Boolean,
     isSilent: Boolean,
     isLastMessageFromReply: Boolean,
@@ -269,6 +271,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
             isForegroundService = isForegroundService,
             isOngoingEvent = isOngoingEvent,
             isAmbient = isAmbient,
+            importance = importance,
             isRowDismissed = isRowDismissed,
             isSilent = isSilent,
             isLastMessageFromReply = isLastMessageFromReply,
@@ -299,6 +302,7 @@ private fun ActiveNotificationsStore.createOrReuseNotif(
             isForegroundService = isForegroundService,
             isOngoingEvent = isOngoingEvent,
             isAmbient = isAmbient,
+            importance = importance,
             isRowDismissed = isRowDismissed,
             isSilent = isSilent,
             isLastMessageFromReply = isLastMessageFromReply,
@@ -330,6 +334,7 @@ private fun ActiveNotificationModel.isCurrent(
     isForegroundService: Boolean,
     isOngoingEvent: Boolean,
     isAmbient: Boolean,
+    importance: Int,
     isRowDismissed: Boolean,
     isSilent: Boolean,
     isLastMessageFromReply: Boolean,
@@ -359,6 +364,7 @@ private fun ActiveNotificationModel.isCurrent(
         isForegroundService != this.isForegroundService -> false
         isOngoingEvent != this.isOngoingEvent -> false
         isAmbient != this.isAmbient -> false
+        importance != this.importance -> false
         isRowDismissed != this.isRowDismissed -> false
         isSilent != this.isSilent -> false
         isLastMessageFromReply != this.isLastMessageFromReply -> false

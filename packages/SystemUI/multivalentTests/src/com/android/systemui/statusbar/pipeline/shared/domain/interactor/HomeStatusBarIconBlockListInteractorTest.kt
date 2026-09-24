@@ -27,6 +27,7 @@ import com.android.systemui.res.R
 import com.android.systemui.shared.settings.data.repository.fakeSecureSettingsRepository
 import com.android.systemui.testKosmos
 import com.google.common.truth.Truth.assertThat
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 
@@ -35,6 +36,42 @@ import org.junit.runner.RunWith
 class HomeStatusBarIconBlockListInteractorTest : SysuiTestCase() {
     val kosmos = testKosmos()
     private val Kosmos.underTest by Kosmos.Fixture { kosmos.homeStatusBarIconBlockListInteractor }
+
+    @Before
+    fun setUp() {
+        overrideResource(R.array.config_statusBarIconsToExclude, emptyArray<String>())
+    }
+
+    @Test
+    fun iconBlockList_preservesBothDefaultsUntilCustomized() =
+        kosmos.runTest {
+            overrideResource(R.array.config_collapsed_statusbar_icon_blocklist, arrayOf("alarm_clock"))
+            overrideResource(R.array.config_statusBarIconsToExclude, arrayOf("headset"))
+            val latest by collectLastValue(underTest.iconBlockList)
+            assertThat(latest).containsExactly("alarm_clock", "headset", "volume")
+
+            fakeSecureSettingsRepository.setString("icon_blacklist", "headset")
+            assertThat(latest).containsExactly("headset")
+
+            fakeSecureSettingsRepository.setString("icon_blacklist", "")
+            assertThat(latest).isEmpty()
+
+            fakeSecureSettingsRepository.setString("icon_blacklist", null)
+            assertThat(latest).containsExactly("alarm_clock", "headset", "volume")
+        }
+
+    @Test
+    fun iconBlockList_keepsPrivacyIndicatorsVisibleAndUnknownEntriesIntact() =
+        kosmos.runTest {
+            fakeSecureSettingsRepository.setString(
+                "icon_blacklist", "camera,microphone,location,sensors_off,wifi,vendor_icon"
+            )
+            val latest by collectLastValue(underTest.iconBlockList)
+            assertThat(latest).containsExactly("wifi", "vendor_icon")
+
+            fakeSecureSettingsRepository.setString("icon_blacklist", "vendor_icon")
+            assertThat(latest).containsExactly("vendor_icon")
+        }
 
     @Test
     fun iconBlockList_containsResources() =

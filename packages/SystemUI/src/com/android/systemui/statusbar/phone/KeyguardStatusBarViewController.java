@@ -504,6 +504,11 @@ public class KeyguardStatusBarViewController extends ViewController<KeyguardStat
                 false,
                 mVolumeSettingObserver,
                 UserHandle.USER_ALL);
+        mSecureSettings.registerContentObserverForUserAsync(
+                StatusBarIconController.ICON_HIDE_LIST,
+                false,
+                mVolumeSettingObserver,
+                UserHandle.USER_ALL);
         updateUserSwitcher();
         onThemeChanged();
         if (!Flags.glanceableHubV2()) {

@@ -19,6 +19,7 @@ package com.android.systemui.statusbar.pipeline.shared.ui.viewmodel
 import android.view.View
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.HomeStatusBarViewBinder
 import com.android.systemui.statusbar.pipeline.shared.ui.binder.StatusBarVisibilityChangeListener
+import kotlinx.coroutines.flow.Flow
 
 /**
  * A fake view binder that can be used from Java tests.
@@ -36,6 +37,7 @@ class FakeHomeStatusBarViewBinder : HomeStatusBarViewBinder {
         systemEventChipAnimateIn: ((View) -> Unit)?,
         systemEventChipAnimateOut: ((View) -> Unit)?,
         listener: StatusBarVisibilityChangeListener?,
+        isClockCenterOccupied: Flow<Boolean>,
     ) {
         this.listener = listener
     }

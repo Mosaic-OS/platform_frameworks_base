@@ -44,6 +44,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -64,6 +65,7 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.android.compose.modifiers.thenIf
 import com.android.compose.theme.PlatformTheme
@@ -262,6 +264,7 @@ fun StatusBarRoot(
                 val phoneStatusBarView =
                     inflater.inflate(R.layout.status_bar, parent, false) as PhoneStatusBarView
 
+                addClockComposable(phoneStatusBarView, clockViewModelFactory, statusBarViewModel)
                 addStartSideComposable(
                     phoneStatusBarView = phoneStatusBarView,
                     clockViewModelFactory = clockViewModelFactory,
@@ -340,6 +343,9 @@ fun StatusBarRoot(
                     eventAnimationInteractor::animateStatusBarContentForChipEnter,
                     eventAnimationInteractor::animateStatusBarContentForChipExit,
                     listener = null,
+                    isClockCenterOccupied = snapshotFlow {
+                        headlineViewModel?.items?.isNotEmpty() == true
+                    },
                 )
                 onViewCreated(phoneStatusBarView)
                 phoneStatusBarView
@@ -389,6 +395,28 @@ fun StatusBarRoot(
     }
 }
 
+private fun addClockComposable(
+    phoneStatusBarView: PhoneStatusBarView,
+    clockViewModelFactory: ClockViewModel.Factory,
+    statusBarViewModel: HomeStatusBarViewModel,
+) {
+    if (!ClockModernization.isEnabled) return
+    for (clockId in listOf(R.id.clock_compose, R.id.clock_center_compose, R.id.clock_right_compose)) {
+        val clock = phoneStatusBarView.findViewById<ComposeView>(clockId) ?: continue
+        clock.setContent {
+            val clockViewModel =
+                rememberViewModel("HomeStatusBar.Clock[$clockId]") {
+                    clockViewModelFactory.create(AmPmStyle.Gone)
+                }
+            WithAdaptiveTint(
+                isDarkProvider = { bounds -> statusBarViewModel.areaDark.isDarkTheme(bounds) }
+            ) { tint ->
+                Clock(clockViewModel = clockViewModel, textColor = tint)
+            }
+        }
+    }
+}
+
 /** Adds the composable chips shown on the start side of the status bar. */
 private fun addStartSideComposable(
     phoneStatusBarView: PhoneStatusBarView,
@@ -429,39 +457,11 @@ private fun addStartSideComposable(
                     }
 
                 var clockViewModel: ClockViewModel? = null
-                if (showDate || ClockModernization.isEnabled) {
+                if (showDate) {
                     clockViewModel =
                         rememberViewModel("HomeStatusBar.Clock") {
                             clockViewModelFactory.create(AmPmStyle.Gone)
                         }
-                }
-
-                if (ClockModernization.isEnabled) {
-                    clockView.visibility = View.GONE
-                    WithAdaptiveTint(
-                        isDarkProvider = { bounds ->
-                            statusBarViewModel.areaDark.isDarkTheme(bounds)
-                        }
-                    ) { tint ->
-                        Clock(
-                            clockViewModel = checkNotNull(clockViewModel),
-                            textColor = tint,
-                            modifier =
-                                Modifier.padding(end = 2.dp)
-                                    .wrapContentSize()
-                                    .onGloballyPositioned { coordinates ->
-                                        val boundsInWindow = coordinates.boundsInWindow()
-                                        val bounds =
-                                            Rect(
-                                                boundsInWindow.left.toInt(),
-                                                boundsInWindow.top.toInt(),
-                                                boundsInWindow.right.toInt(),
-                                                boundsInWindow.bottom.toInt(),
-                                            )
-                                        statusBarBoundsViewModel.updateComposeClockBounds(bounds)
-                                    },
-                        )
-                    }
                 }
 
                 if (showDate) {
@@ -562,7 +562,14 @@ fun chipsMaxWidth(
 
     // The chips should be next to the date if it is showing, otherwise they should be next to the
     // clock.
-    val clockOrDateBounds = if (dateBounds.isEmpty) clockBounds else dateBounds
+    val startClockBounds =
+        if (Rect.intersects(clockBounds, startSideContainerBounds)) {
+            clockBounds
+        } else {
+            val edge = if (isRtl) startSideContainerBounds.right else startSideContainerBounds.left
+            Rect(edge, startSideContainerBounds.top, edge, startSideContainerBounds.bottom)
+        }
+    val clockOrDateBounds = if (dateBounds.isEmpty) startClockBounds else dateBounds
 
     val widthInPx =
         if (isRtl) {
@@ -591,6 +598,7 @@ private fun addBatteryComposable(
     val batteryComposeView =
         ComposeView(phoneStatusBarView.context).apply {
             setContent {
+                if (!isStatusBarBatteryVisible(statusBarViewModel)) return@setContent
                 val height =
                     with(LocalDensity.current) {
                         BatteryViewModel.getStatusBarBatteryHeight(LocalContext.current).toDp()
@@ -641,19 +649,21 @@ private fun addEndSideComposable(
                             statusBarViewModel.systemStatusIconBlockListInteractor,
                     )
 
-                    val height =
-                        with(LocalDensity.current) {
-                            BatteryViewModel.getStatusBarBatteryHeight(LocalContext.current).toDp()
-                        }
-                    val viewModel =
-                        rememberViewModel(traceName = "UnifiedBattery") {
-                            statusBarViewModel.unifiedBatteryViewModel.create()
-                        }
-                    UnifiedBattery(
-                        viewModel = viewModel,
-                        isDarkProvider = { statusBarViewModel.areaDark },
-                        modifier = Modifier.height(height).wrapContentWidth(),
-                    )
+                    if (isStatusBarBatteryVisible(statusBarViewModel)) {
+                        val height =
+                            with(LocalDensity.current) {
+                                BatteryViewModel.getStatusBarBatteryHeight(LocalContext.current).toDp()
+                            }
+                        val viewModel =
+                            rememberViewModel(traceName = "UnifiedBattery") {
+                                statusBarViewModel.unifiedBatteryViewModel.create()
+                            }
+                        UnifiedBattery(
+                            viewModel = viewModel,
+                            isDarkProvider = { statusBarViewModel.areaDark },
+                            modifier = Modifier.height(height).wrapContentWidth(),
+                        )
+                    }
                 }
             }
         }
@@ -661,6 +671,13 @@ private fun addEndSideComposable(
     phoneStatusBarView.findViewById<ViewGroup>(R.id.status_bar_end_side_content).apply {
         addView(systemStatusIconsComposeView)
     }
+}
+
+@Composable
+private fun isStatusBarBatteryVisible(viewModel: HomeStatusBarViewModel): Boolean {
+    val blockedSlots by viewModel.iconBlockList.collectAsStateWithLifecycle(emptyList())
+    val slot = LocalContext.current.getString(com.android.internal.R.string.status_bar_battery)
+    return slot !in blockedSlots
 }
 
 @Composable

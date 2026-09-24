@@ -58,6 +58,7 @@ data class ActiveNotificationModel(
     val isOngoingEvent: Boolean,
     /** Is this entry in the ambient / minimized section (lowest priority)? */
     val isAmbient: Boolean,
+    val importance: Int,
     /**
      * Is this entry dismissed? This is `true` when the user has dismissed the notification in the
      * UI, but `NotificationManager` has not yet signalled to us that it has received the dismissal.

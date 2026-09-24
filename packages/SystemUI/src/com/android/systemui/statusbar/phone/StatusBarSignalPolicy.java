@@ -143,6 +143,7 @@ public class StatusBarSignalPolicy
             mHideAirplane = hideAirplane;
             mHideMobile = hideMobile;
             mHideEthernet = hideEthernet;
+            updateAirplaneModeIcon(mAirplaneModeInteractor.isAirplaneMode().getValue());
         }
     }
 

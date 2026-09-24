@@ -16,6 +16,7 @@
 
 package com.android.systemui.statusbar.notification.data.model
 
+import android.app.NotificationManager.IMPORTANCE_DEFAULT
 import android.app.PendingIntent
 import android.graphics.drawable.Icon
 import com.android.internal.logging.InstanceId
@@ -55,6 +56,7 @@ fun activeNotificationModel(
     promotedContent: PromotedNotificationContentModels? = null,
     notifStyle: NotifStyle? = null,
     isScreenShareNotification: Boolean = false,
+    importance: Int = IMPORTANCE_DEFAULT,
 ) =
     ActiveNotificationModel(
         key = key,
@@ -63,6 +65,7 @@ fun activeNotificationModel(
         isForegroundService = isForegroundService,
         isOngoingEvent = isOngoingEvent,
         isAmbient = isAmbient,
+        importance = importance,
         isRowDismissed = isRowDismissed,
         isSilent = isSilent,
         isLastMessageFromReply = isLastMessageFromReply,

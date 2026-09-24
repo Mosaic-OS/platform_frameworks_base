@@ -15,6 +15,7 @@
 
 package com.android.systemui.statusbar.notification.icon.domain.interactor
 
+import android.app.NotificationManager.IMPORTANCE_LOW
 import android.content.Context
 import android.graphics.drawable.Icon
 import com.android.systemui.dagger.qualifiers.Application
@@ -22,6 +23,7 @@ import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.deviceentry.domain.interactor.DeviceEntryBypassInteractor
 import com.android.systemui.kairos.util.Either
 import com.android.systemui.kairos.util.mergeSecond
+import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.data.repository.NotificationListenerSettingsRepository
 import com.android.systemui.statusbar.notification.data.repository.ActiveNotificationListRepository
 import com.android.systemui.statusbar.notification.data.repository.ActiveNotificationsStore
@@ -74,6 +76,7 @@ constructor(
         showRepliedMessages: Boolean = true,
         showPulsing: Boolean = true,
         showAodPromoted: Boolean = true,
+        hideLowImportance: Boolean = false,
     ): Flow<Set<ActiveNotificationIconModel>> {
         return combine(
             activeNotificationsRepository.activeNotifications,
@@ -89,7 +92,11 @@ constructor(
                                 // bundles are located in the silent section, so only include them
                                 // if we're showing low priority icons
                                 is ActiveBundleModel ->
-                                    if (shouldShowBundleIcon(it, showAmbient, showLowPriority)) {
+                                    if (
+                                        shouldShowBundleIcon(
+                                            it, showAmbient, showLowPriority, hideLowImportance
+                                        )
+                                    ) {
                                         Either.first(it.toIconModel())
                                     } else {
                                         null
@@ -107,6 +114,7 @@ constructor(
                                         model = notifModel,
                                         showAmbient = showAmbient,
                                         showLowPriority = showLowPriority,
+                                        hideLowImportance = hideLowImportance,
                                         showDismissed = showDismissed,
                                         showRepliedMessages = showRepliedMessages,
                                         showPulsing = showPulsing,
@@ -125,10 +133,20 @@ constructor(
         model: ActiveBundleModel,
         showAmbient: Boolean,
         showLowPriority: Boolean,
+        hideLowImportance: Boolean,
     ): Boolean {
         return when {
             !showLowPriority -> false
             !showAmbient && areAllChildrenSuppressed(model.children) -> false
+            hideLowImportance &&
+                model.children.none { child ->
+                    when (child) {
+                        is ActiveNotificationModel -> child.importance >= IMPORTANCE_LOW
+                        is ActiveNotificationGroupModel ->
+                            child.summary.importance >= IMPORTANCE_LOW ||
+                                child.children.any { it.importance >= IMPORTANCE_LOW }
+                    }
+                } -> false
             else -> true
         }
     }
@@ -144,6 +162,7 @@ constructor(
         model: ActiveNotificationModel,
         showAmbient: Boolean,
         showLowPriority: Boolean,
+        hideLowImportance: Boolean,
         showDismissed: Boolean,
         showRepliedMessages: Boolean,
         showPulsing: Boolean,
@@ -153,6 +172,7 @@ constructor(
         return when {
             !showAmbient && model.isAmbient -> false
             !showLowPriority && model.isSilent -> false
+            hideLowImportance && model.importance < IMPORTANCE_LOW -> false
             !showDismissed && model.isRowDismissed -> false
             !showRepliedMessages && model.isLastMessageFromReply -> false
             !showAmbient && model.isSuppressedFromStatusBar -> false
@@ -234,14 +254,21 @@ constructor(
     @Background bgContext: CoroutineContext,
     iconsInteractor: NotificationIconsInteractor,
     settingsRepository: NotificationListenerSettingsRepository,
+    secureSettingsRepository: SecureSettingsRepository,
 ) {
     @OptIn(ExperimentalCoroutinesApi::class)
     val statusBarNotifs: Flow<Set<ActiveNotificationIconModel>> =
-        settingsRepository.showSilentStatusIcons
-            .flatMapLatest { showSilentIcons ->
+        combine(
+                settingsRepository.showSilentStatusIcons,
+                secureSettingsRepository.boolSetting(
+                    "mosaic_status_bar_hide_low_priority_icons", false
+                ),
+            ) { showSilentIcons, hideLowImportance -> showSilentIcons to hideLowImportance }
+            .flatMapLatest { (showSilentIcons, hideLowImportance) ->
                 iconsInteractor.filteredNotifSet(
                     showAmbient = false,
                     showLowPriority = showSilentIcons,
+                    hideLowImportance = hideLowImportance,
                     showDismissed = false,
                     showRepliedMessages = false,
                 )

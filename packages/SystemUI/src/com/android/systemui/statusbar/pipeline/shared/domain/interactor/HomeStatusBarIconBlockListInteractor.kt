@@ -25,6 +25,7 @@ import com.android.systemui.shared.settings.data.repository.SecureSettingsReposi
 import com.android.systemui.statusbar.systemstatusicons.domain.interactor.SystemStatusIconBlocklistInteractor
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 
 /** A place to define the blocklist/allowlist for home status bar icons */
@@ -37,23 +38,33 @@ constructor(@Main res: Resources, secureSettingsRepository: SecureSettingsReposi
         res.getStringArray(R.array.config_collapsed_statusbar_icon_blocklist)
 
     private val vibrateIconSlot = res.getString(com.android.internal.R.string.status_bar_volume)
+    private val defaultHiddenIcons = res.getStringArray(R.array.config_statusBarIconsToExclude)
+    private val protectedSlots =
+        setOf(
+            res.getString(com.android.internal.R.string.status_bar_camera),
+            res.getString(com.android.internal.R.string.status_bar_microphone),
+            res.getString(com.android.internal.R.string.status_bar_location),
+            res.getString(com.android.internal.R.string.status_bar_sensors_off),
+        )
 
     /** Tracks the user setting [Settings.Secure.STATUS_BAR_SHOW_VIBRATE_ICON] */
     private val shouldShowVibrateIcon: Flow<Boolean> =
         secureSettingsRepository.boolSetting(Settings.Secure.STATUS_BAR_SHOW_VIBRATE_ICON, false)
 
     override val blockedIconSlots: Flow<Set<String>> =
-        shouldShowVibrateIcon.map {
-            val defaultSet = defaultBlockedIcons.toMutableSet()
-            // It's possible that the vibrate icon was in the default blocklist, so we manually
-            // merge the setting and list
-            if (it) {
-                defaultSet.remove(vibrateIconSlot)
-            } else {
-                defaultSet.add(vibrateIconSlot)
-            }
-
-            defaultSet
+        combine(
+            shouldShowVibrateIcon,
+            secureSettingsRepository.stringSetting("icon_blacklist"),
+        ) { showVibrate, stored ->
+            val blocked =
+                if (stored != null) {
+                    stored.split(",").filter { it.isNotEmpty() }.toMutableSet()
+                } else {
+                    (defaultBlockedIcons + defaultHiddenIcons).toMutableSet().apply {
+                        if (showVibrate) remove(vibrateIconSlot) else add(vibrateIconSlot)
+                    }
+                }
+            blocked - protectedSlots
         }
 
     val iconBlockList: Flow<List<String>> = blockedIconSlots.map { it.toList() }

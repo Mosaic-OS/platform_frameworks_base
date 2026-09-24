@@ -88,7 +88,7 @@ private constructor(
     private val statusBarWindowControllerStore: StatusBarWindowControllerStore,
 ) : ViewController<PhoneStatusBarView>(view) {
 
-    private lateinit var clock: Clock
+    private var clocks: List<Clock> = emptyList()
     private lateinit var startSideContainer: View
     private lateinit var endSideContainer: View
 
@@ -179,7 +179,12 @@ private constructor(
     }
 
     override fun onViewAttached() {
-        clock = mView.requireViewById(R.id.clock)
+        clocks =
+            listOfNotNull(
+                mView.requireViewById<Clock>(R.id.clock),
+                mView.findViewById<Clock>(R.id.clock_center),
+                mView.findViewById<Clock>(R.id.clock_right),
+            )
 
         addDarkReceivers()
 
@@ -314,11 +319,11 @@ private constructor(
     }
 
     private fun addDarkReceivers() {
-        darkIconDispatcher.addDarkReceiver(clock)
+        clocks.forEach { darkIconDispatcher.addDarkReceiver(it) }
     }
 
     private fun removeDarkReceivers() {
-        darkIconDispatcher.removeDarkReceiver(clock)
+        clocks.forEach { darkIconDispatcher.removeDarkReceiver(it) }
     }
 
     @Deprecated(

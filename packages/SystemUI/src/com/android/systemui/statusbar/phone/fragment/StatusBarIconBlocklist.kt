@@ -35,6 +35,16 @@ fun getStatusBarIconBlocklist(
     res: Resources,
     settings: SecureSettings
 ): List<String> {
+    val stored = settings.getStringForUser("icon_blacklist", UserHandle.USER_CURRENT)
+    if (stored != null) {
+        val protectedSlots = setOf(
+            res.getString(R.string.status_bar_camera),
+            res.getString(R.string.status_bar_microphone),
+            res.getString(R.string.status_bar_location),
+            res.getString(R.string.status_bar_sensors_off),
+        )
+        return stored.split(",").filter { it.isNotEmpty() && it !in protectedSlots }
+    }
     // Load the default blocklist from res
     val blocklist = res.getStringArray(
             com.android.systemui.res.R.array.config_collapsed_statusbar_icon_blocklist).toList()

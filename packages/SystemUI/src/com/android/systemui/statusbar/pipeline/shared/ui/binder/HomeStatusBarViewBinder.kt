@@ -18,24 +18,34 @@ package com.android.systemui.statusbar.pipeline.shared.ui.binder
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter
+import android.util.Log
 import android.view.View
 import androidx.core.view.isVisible
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.repeatOnLifecycle
 import com.android.app.animation.Interpolators
+import com.android.internal.util.StatusBarClockPosition
 import com.android.systemui.clock.ClockModernization
 import com.android.systemui.display.dagger.SystemUIDisplaySubcomponent.PerDisplaySingleton
 import com.android.systemui.lifecycle.repeatWhenAttached
 import com.android.systemui.res.R
 import com.android.systemui.scene.shared.flag.SceneContainerFlag
+import com.android.systemui.shared.settings.data.repository.SecureSettingsRepository
 import com.android.systemui.statusbar.chips.mediaprojection.domain.model.MediaProjectionStopDialogModel
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingIn
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.AnimatingOut
 import com.android.systemui.statusbar.events.shared.model.SystemEventAnimationState.RunningChipAnim
+import com.android.systemui.statusbar.notification.domain.interactor.HeadsUpNotificationInteractor
+import com.android.systemui.statusbar.notification.domain.model.TopPinnedState
 import com.android.systemui.statusbar.pipeline.shared.ui.model.VisibilityModel
 import com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -57,11 +67,39 @@ interface HomeStatusBarViewBinder {
         systemEventChipAnimateIn: ((View) -> Unit)?,
         systemEventChipAnimateOut: ((View) -> Unit)?,
         listener: StatusBarVisibilityChangeListener?,
+        isClockCenterOccupied: Flow<Boolean> = flowOf(false),
     )
 }
 
 @PerDisplaySingleton
-class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinder {
+class HomeStatusBarViewBinderImpl
+@Inject
+constructor(
+    private val secureSettingsRepository: SecureSettingsRepository,
+    private val headsUpNotificationInteractor: HeadsUpNotificationInteractor,
+) : HomeStatusBarViewBinder {
+    private data class ClockState(
+        val position: String,
+        val visibility: VisibilityModel,
+        val denyListed: Boolean,
+        val hideForHun: Boolean,
+        val centerOccupied: Boolean,
+    )
+
+    private data class ClockViews(val text: View, val content: View, val compose: View?) {
+        val renderer: View
+            get() = if (ClockModernization.isEnabled) compose ?: text else text
+
+        fun hide() {
+            content.animate().cancel()
+            content.animate().withEndAction(null)
+            content.visibility = View.GONE
+            content.alpha = 0f
+            text.visibility = View.GONE
+            compose?.visibility = View.GONE
+        }
+    }
+
     override fun bind(
         displayId: Int,
         view: View,
@@ -69,19 +107,48 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
         systemEventChipAnimateIn: ((View) -> Unit)?,
         systemEventChipAnimateOut: ((View) -> Unit)?,
         listener: StatusBarVisibilityChangeListener?,
+        isClockCenterOccupied: Flow<Boolean>,
     ) {
         // Set some top-level views to gone before we get started
         val systemInfoView = view.requireViewById<View>(R.id.status_bar_end_side_content)
-        val clockView = view.requireViewById<View>(R.id.clock)
+        val leftClock = view.requireViewById<View>(R.id.clock)
+        val centerClock = view.findViewById<View>(R.id.clock_center)
+        val rightClock = view.findViewById<View>(R.id.clock_right)
+        fun clockViews(clock: View, contentId: Int, composeId: Int) =
+            ClockViews(clock, view.findViewById<View>(contentId) ?: clock, view.findViewById(composeId))
+        val left = clockViews(leftClock, R.id.status_bar_clock_content, R.id.clock_compose)
+        val center =
+            centerClock?.let {
+                clockViews(it, R.id.status_bar_center_clock_content, R.id.clock_center_compose)
+            }
+        val right =
+            rightClock?.let {
+                clockViews(it, R.id.status_bar_right_clock_content, R.id.clock_right_compose)
+            }
+        val clocks = listOfNotNull(left, center, right)
         val notificationIconsArea = view.requireViewById<View>(R.id.notificationIcons)
 
         // GONE because this shouldn't take space in the layout
         systemInfoView.hideInitially()
-        clockView.hideInitially()
+        clocks.forEach { it.hide() }
         notificationIconsArea.hideInitially()
 
         view.repeatWhenAttached {
             repeatOnLifecycle(Lifecycle.State.CREATED) {
+                val clockPosition =
+                    secureSettingsRepository.stringSetting(StatusBarClockPosition.SETTING)
+                        .distinctUntilChanged()
+                        .map { raw ->
+                            val resolved = StatusBarClockPosition.resolve(view.context, raw)
+                            Log.d(
+                                "StatusBarClockPosition",
+                                "raw=$raw resolved=$resolved " +
+                                    "views(left=true,center=${centerClock != null}," +
+                                    "right=${rightClock != null}) compose=${ClockModernization.isEnabled}",
+                            )
+                            raw
+                        }
+
                 listener?.let { listener ->
                     launch {
                         viewModel.isTransitioningFromLockscreenToOccluded.collect {
@@ -140,8 +207,43 @@ class HomeStatusBarViewBinderImpl @Inject constructor() : HomeStatusBarViewBinde
                     viewModel.shouldShowOperatorNameView.collect { operatorNameView.isVisible = it }
                 }
 
-                if (!ClockModernization.isEnabled) {
-                    launch { viewModel.isClockVisible.collect { clockView.adjustVisibility(it) } }
+                launch {
+                    combine(
+                            combine(clockPosition, viewModel.contentArea) { raw, _ ->
+                                StatusBarClockPosition.resolve(view.context, raw)
+                            },
+                            viewModel.isClockVisible,
+                            viewModel.iconBlockList,
+                            headsUpNotificationInteractor.statusBarHeadsUpState,
+                            isClockCenterOccupied,
+                        ) { position, visibility, blockedSlots, headsUp, centerOccupied ->
+                            ClockState(
+                                position,
+                                visibility,
+                                "clock" in blockedSlots,
+                                headsUp is TopPinnedState.Pinned,
+                                centerOccupied,
+                            )
+                        }
+                        .distinctUntilChanged()
+                        .collect { state ->
+                            val activeClock =
+                                when (state.position) {
+                                    StatusBarClockPosition.CENTER ->
+                                        if (state.centerOccupied) left else center ?: left
+                                    StatusBarClockPosition.RIGHT -> right ?: left
+                                    else -> left
+                                }
+                            val visibility =
+                                if (state.denyListed || (activeClock === left && state.hideForHun)) {
+                                    state.visibility.copy(visibility = View.GONE)
+                                } else {
+                                    state.visibility
+                                }
+                            clocks.forEach { it.hide() }
+                            activeClock.renderer.visibility = View.VISIBLE
+                            activeClock.content.adjustVisibility(visibility)
+                        }
                 }
 
                 launch {

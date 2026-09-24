@@ -37,7 +37,7 @@ public final class PhoneStatusBarTransitions extends BarTransitions {
 
     private boolean mIsHeadsUp;
 
-    private View mStartSide, mStatusIcons, mNetworkTraffic;
+    private View mStartSide, mStatusIcons, mNetworkTraffic, mCenterClock, mRightClock;
     private Animator mCurrentAnimation;
 
     /**
@@ -48,6 +48,8 @@ public final class PhoneStatusBarTransitions extends BarTransitions {
         final Resources res = statusBarView.getContext().getResources();
         mIconAlphaWhenOpaque = res.getFraction(R.dimen.status_bar_icon_drawing_alpha, 1, 1);
         mStartSide = statusBarView.findViewById(R.id.status_bar_start_side_except_heads_up);
+        mCenterClock = statusBarView.findViewById(R.id.status_bar_center_clock_container);
+        mRightClock = statusBarView.findViewById(R.id.right_clock_layout);
         mStatusIcons = statusBarView.findViewById(R.id.statusIcons);
         mNetworkTraffic = statusBarView.findViewById(R.id.networkTraffic);
         applyModeBackground(-1, getMode(), false /*animate*/);
@@ -117,6 +119,12 @@ public final class PhoneStatusBarTransitions extends BarTransitions {
             List<Animator> animators = new ArrayList<>();
             animators.add(animateTransitionTo(mStartSide, newStartSideAlpha));
             animators.add(animateTransitionTo(mStatusIcons, newStatusIconsAlpha));
+            if (mCenterClock != null) {
+                animators.add(animateTransitionTo(mCenterClock, newStartSideAlpha));
+            }
+            if (mRightClock != null) {
+                animators.add(animateTransitionTo(mRightClock, newStartSideAlpha));
+            }
             // Optional: absent if this status bar variant doesn't include system_icons.
             if (mNetworkTraffic != null) {
                 animators.add(animateTransitionTo(mNetworkTraffic, newStatusIconsAlpha));
@@ -129,6 +137,8 @@ public final class PhoneStatusBarTransitions extends BarTransitions {
             mCurrentAnimation = anims;
         } else {
             mStartSide.setAlpha(newStartSideAlpha);
+            if (mCenterClock != null) mCenterClock.setAlpha(newStartSideAlpha);
+            if (mRightClock != null) mRightClock.setAlpha(newStartSideAlpha);
             mStatusIcons.setAlpha(newStatusIconsAlpha);
             if (mNetworkTraffic != null) {
                 mNetworkTraffic.setAlpha(newStatusIconsAlpha);

@@ -114,6 +114,10 @@ public interface StatusBarIconController {
                 ret.add(slot);
             }
         }
+        ret.remove(context.getString(com.android.internal.R.string.status_bar_camera));
+        ret.remove(context.getString(com.android.internal.R.string.status_bar_microphone));
+        ret.remove(context.getString(com.android.internal.R.string.status_bar_location));
+        ret.remove(context.getString(com.android.internal.R.string.status_bar_sensors_off));
         return ret;
     }
 

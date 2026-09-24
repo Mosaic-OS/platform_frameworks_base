@@ -164,10 +164,14 @@ constructor(
         }
 
     override val iconViewModels by
-        combine(externalIconViewModels, internalIconViewModels) { externalIcons, internalIcons ->
+        combine(
+                externalIconViewModels,
+                internalIconViewModels,
+                systemStatusIconBlocklistInteractor.blockedIconSlots,
+            ) { externalIcons, internalIcons, blockedSlots ->
                 // Put external at the beginning because they're the lowest priority, so they
                 // should get ellipsized first.
-                externalIcons + internalIcons
+                externalIcons.filterNot { it.slotName in blockedSlots } + internalIcons
             }
             .hydratedStateOf(initialValue = emptyList())
 

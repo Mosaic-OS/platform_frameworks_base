@@ -32,6 +32,7 @@ import com.android.systemui.shade.domain.interactor.displayAwareShadeElementTogg
 import com.android.systemui.shade.domain.interactor.notificationElement
 import com.android.systemui.shade.domain.interactor.qsElement
 import com.android.systemui.shade.domain.interactor.shadeInteractor
+import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
 import com.android.systemui.statusbar.chips.sharetoapp.ui.viewmodel.shareToAppChipViewModel
 import com.android.systemui.statusbar.chips.ui.viewmodel.ongoingActivityChipsViewModel
 import com.android.systemui.statusbar.chips.uievents.statusBarChipsUiEventLogger
@@ -42,6 +43,7 @@ import com.android.systemui.statusbar.layout.ui.viewmodel.statusBarBoundsViewMod
 import com.android.systemui.statusbar.layout.ui.viewmodel.statusBarContentInsetsViewModel
 import com.android.systemui.statusbar.notification.domain.interactor.activeNotificationsInteractor
 import com.android.systemui.statusbar.notification.icon.domain.interactor.statusBarNotificationIconsInteractor
+import com.android.systemui.statusbar.notification.stack.domain.interactor.headsUpNotificationInteractor
 import com.android.systemui.statusbar.phone.domain.interactor.darkIconInteractor
 import com.android.systemui.statusbar.phone.domain.interactor.lightsOutInteractor
 import com.android.systemui.statusbar.pipeline.battery.ui.viewmodel.batteryViewModelBasedOnSettingFactory
@@ -57,7 +59,9 @@ import com.android.systemui.statusbar.systemstatusicons.ui.viewmodel.systemStatu
 import com.android.systemui.user.domain.interactor.userLogoutInteractor
 
 var Kosmos.homeStatusBarViewBinder: HomeStatusBarViewBinder by
-    Kosmos.Fixture { HomeStatusBarViewBinderImpl() }
+    Kosmos.Fixture {
+        HomeStatusBarViewBinderImpl(secureSettingsRepository, headsUpNotificationInteractor)
+    }
 
 var Kosmos.homeStatusBarViewModel: HomeStatusBarViewModel by
     Kosmos.Fixture { homeStatusBarViewModelFactory.invoke(testableContext.displayId) }

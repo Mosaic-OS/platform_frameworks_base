@@ -21,6 +21,7 @@ import com.android.systemui.deviceentry.domain.interactor.deviceEntryBypassInter
 import com.android.systemui.kosmos.Kosmos
 import com.android.systemui.kosmos.Kosmos.Fixture
 import com.android.systemui.kosmos.testDispatcher
+import com.android.systemui.shared.settings.data.repository.secureSettingsRepository
 import com.android.systemui.statusbar.data.repository.notificationListenerSettingsRepository
 import com.android.systemui.statusbar.notification.data.repository.activeNotificationListRepository
 import com.android.systemui.statusbar.notification.data.repository.notificationsKeyguardViewStateRepository
@@ -40,6 +41,7 @@ val Kosmos.statusBarNotificationIconsInteractor by Fixture {
         bgContext = testDispatcher,
         iconsInteractor = notificationIconsInteractor,
         settingsRepository = notificationListenerSettingsRepository,
+        secureSettingsRepository = secureSettingsRepository,
     )
 }
 

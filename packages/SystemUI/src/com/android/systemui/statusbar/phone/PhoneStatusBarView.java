@@ -34,7 +34,6 @@ import android.view.WindowInsets;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.flags.Flags;
 import android.widget.FrameLayout;
-import android.widget.LinearLayout;
 
 import androidx.annotation.NonNull;
 
@@ -46,6 +45,7 @@ import com.android.systemui.plugins.DarkIconDispatcher.DarkReceiver;
 import com.android.systemui.res.R;
 import com.android.systemui.statusbar.gesture.StatusBarLongPressGestureDetector;
 import com.android.systemui.statusbar.phone.userswitcher.StatusBarUserSwitcherContainer;
+import com.android.systemui.statusbar.policy.Clock;
 import com.android.systemui.user.ui.binder.StatusBarUserChipViewBinder;
 import com.android.systemui.user.ui.viewmodel.StatusBarUserChipViewModel;
 import com.android.systemui.util.leak.RotationUtils;
@@ -126,6 +126,10 @@ public class PhoneStatusBarView extends FrameLayout {
     public void onFinishInflate() {
         super.onFinishInflate();
         mCutoutSpace = findViewById(R.id.cutout_space_view);
+        for (int clockId : new int[] {R.id.clock, R.id.clock_center, R.id.clock_right}) {
+            final Clock clock = findViewById(clockId);
+            if (clock != null) clock.setShouldApplyPadding(false);
+        }
 
         updateResources();
     }
@@ -326,6 +330,14 @@ public class PhoneStatusBarView extends FrameLayout {
     }
 
     private void updatePaddings() {
+        updateClockPadding(R.id.status_bar_clock_content,
+                R.dimen.status_bar_left_clock_starting_padding,
+                R.dimen.status_bar_left_clock_end_padding);
+        updateClockPadding(R.id.status_bar_center_clock_content,
+                R.dimen.status_bar_clock_starting_padding, R.dimen.status_bar_clock_end_padding);
+        updateClockPadding(R.id.status_bar_right_clock_content,
+                R.dimen.status_bar_clock_starting_padding, R.dimen.status_bar_clock_end_padding);
+
         int statusBarPaddingStart = getResources().getDimensionPixelSize(
                 R.dimen.status_bar_padding_start);
 
@@ -344,6 +356,14 @@ public class PhoneStatusBarView extends FrameLayout {
                 getResources().getDimensionPixelSize(R.dimen.status_bar_icons_padding_end),
                 getResources().getDimensionPixelSize(R.dimen.status_bar_icons_padding_bottom)
         );
+    }
+
+    private void updateClockPadding(int contentId, int startPadding, int endPadding) {
+        final View content = findViewById(contentId);
+        if (content != null) {
+            content.setPaddingRelative(getResources().getDimensionPixelSize(startPadding), 0,
+                    getResources().getDimensionPixelSize(endPadding), 0);
+        }
     }
 
     private void updateLayoutForCutout() {
@@ -372,7 +392,7 @@ public class PhoneStatusBarView extends FrameLayout {
         }
 
         mCutoutSpace.setVisibility(View.VISIBLE);
-        LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) mCutoutSpace.getLayoutParams();
+        ViewGroup.LayoutParams lp = mCutoutSpace.getLayoutParams();
 
         Rect bounds = mDisplayCutout.getBoundingRectTop();
 
