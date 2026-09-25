@@ -803,16 +803,16 @@ public class VoiceInteractionManagerService extends SystemService {
                 }
             }
 
-            if (curRecognizer != null) {
-                // If we already have at least a recognizer, then we probably want to
-                // leave things as they are...  unless something has disappeared.
+            if (curInteractorInfo == null
+                    && (curRecognizer != null || !TextUtils.isEmpty(curInteractorStr))) {
+                // A missing recognizer must not discard an available selected interactor.
                 IPackageManager pm = AppGlobals.getPackageManager();
                 ServiceInfo interactorInfo = null;
                 ServiceInfo recognizerInfo = null;
                 ComponentName curInteractor = !TextUtils.isEmpty(curInteractorStr)
                         ? ComponentName.unflattenFromString(curInteractorStr) : null;
                 try {
-                    recognizerInfo = pm.getServiceInfo(
+                    recognizerInfo = curRecognizer == null ? null : pm.getServiceInfo(
                             curRecognizer,
                             PackageManager.MATCH_DIRECT_BOOT_AWARE
                                     | PackageManager.MATCH_DIRECT_BOOT_UNAWARE
@@ -849,6 +849,10 @@ public class VoiceInteractionManagerService extends SystemService {
                 // If the apps for the currently set components still exist, then all is okay.
                 if (recognizerInfo != null && (curInteractor == null || interactorInfo != null)) {
                     if (DEBUG) Slog.d(TAG, "Current interactor/recognizer okay, done!");
+                    return;
+                }
+                if (interactorInfo != null) {
+                    initRecognizer(userHandle);
                     return;
                 }
                 if (DEBUG) Slog.d(TAG, "Bad recognizer (" + recognizerInfo + ") or interactor ("
