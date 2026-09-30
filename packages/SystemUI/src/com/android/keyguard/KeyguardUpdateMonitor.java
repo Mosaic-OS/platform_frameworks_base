@@ -70,6 +70,7 @@ import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.content.pm.UserInfo;
 import android.database.ContentObserver;
+import android.ext.settings.ExtSettings;
 import android.hardware.SensorPrivacyManager;
 import android.hardware.biometrics.BiometricAuthenticator;
 import android.hardware.biometrics.BiometricFingerprintConstants;
@@ -1047,6 +1048,16 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
                 });
     }
 
+    public boolean isFingerprintSingleAttemptEnabled() {
+        try {
+            return ExtSettings.FINGERPRINT_SINGLE_ATTEMPT.get(mContext,
+                    mSelectedUserInteractor.getSelectedUserId());
+        } catch (RuntimeException e) {
+            Log.e(TAG, "Unable to read fingerprint single attempt setting", e);
+            return false;
+        }
+    }
+
     private void handleFingerprintAuthFailed() {
         Assert.isMainThread();
         if (mHandler.hasCallbacks(mFpCancelNotReceived)) {
@@ -1055,6 +1066,31 @@ public class KeyguardUpdateMonitor implements TrustManager.TrustListener, CoreSt
             mHandler.removeCallbacks(mFpCancelNotReceived);
         }
         mLogger.d("handleFingerprintAuthFailed");
+        if (isFingerprintSingleAttemptEnabled()) {
+            int userId = UserHandle.USER_NULL;
+            boolean wasWaiting = false;
+            boolean strongAuthRequested = false;
+            try {
+                userId = mSelectedUserInteractor.getSelectedUserId();
+                wasWaiting = getUserWaitingForStrongAuthUpdateAfterSecondFactorLockout(userId);
+                Log.i(TAG, "Fingerprint single attempt: requiring primary credential, userId="
+                        + userId);
+                int strongAuth = mStrongAuthTracker.getStrongAuthForUser(userId);
+                if ((strongAuth & STRONG_AUTH_REQUIRED_AFTER_LOCKOUT) == 0) {
+                    // Block a fingerprint match arriving before the strong-auth update.
+                    setUserWaitingForStrongAuthUpdateAfterSecondFactorLockout(userId, true);
+                }
+                clearFingerprintRecognized();
+                mLockPatternUtils.requireStrongAuth(STRONG_AUTH_REQUIRED_AFTER_LOCKOUT, userId);
+                strongAuthRequested = true;
+                updateFingerprintListeningState(BIOMETRIC_ACTION_UPDATE);
+            } catch (RuntimeException e) {
+                if (userId != UserHandle.USER_NULL && !strongAuthRequested) {
+                    setUserWaitingForStrongAuthUpdateAfterSecondFactorLockout(userId, wasWaiting);
+                }
+                Log.e(TAG, "Unable to enforce fingerprint single attempt, userId=" + userId, e);
+            }
+        }
         for (int i = 0; i < mCallbacks.size(); i++) {
             KeyguardUpdateMonitorCallback cb = mCallbacks.get(i).get();
             if (cb != null) {

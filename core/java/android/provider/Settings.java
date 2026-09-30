@@ -7570,6 +7570,10 @@ public final class Settings {
 
         /** @hide */
         @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
+        public static final String FINGERPRINT_SINGLE_ATTEMPT = "fingerprint_single_attempt";
+
+        /** @hide */
+        @Protected(read = KnownSystemPackage.SYSTEM_UI, readWrite = KnownSystemPackage.SETTINGS)
         public static final String SCRAMBLE_PIN_LAYOUT_PRIMARY =
                 "lockscreen_scramble_pin_layout";
         /** @hide */

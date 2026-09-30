@@ -29,6 +29,7 @@ import static android.security.Flags.secureLockdown;
 import static com.android.internal.widget.LockDomain.Primary;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.PRIMARY_AUTH_REQUIRED_FOR_SECURE_LOCK_DEVICE;
 import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.SOME_AUTH_REQUIRED_AFTER_ADAPTIVE_AUTH_REQUEST;
+import static com.android.internal.widget.LockPatternUtils.StrongAuthTracker.STRONG_AUTH_REQUIRED_AFTER_LOCKOUT;
 
 import android.annotation.EnforcePermission;
 import android.annotation.NonNull;
@@ -37,8 +38,11 @@ import android.app.KeyguardManager;
 import android.companion.DeviceId;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.ext.settings.ExtSettings;
 import android.hardware.biometrics.AuthenticationStateListener;
 import android.hardware.biometrics.BiometricManager;
+import android.hardware.biometrics.BiometricRequestConstants;
+import android.hardware.biometrics.BiometricSourceType;
 import android.hardware.biometrics.Flags;
 import android.hardware.biometrics.events.AuthenticationAcquiredInfo;
 import android.hardware.biometrics.events.AuthenticationErrorInfo;
@@ -292,6 +296,7 @@ public class AuthenticationPolicyService extends SystemService {
                     break;
                 case MSG_REPORT_BIOMETRIC_AUTH_FAILURE:
                     AuthenticationFailedInfo failInfo = (AuthenticationFailedInfo) msg.obj;
+                    requirePrimaryAuthAfterFingerprintFailure(failInfo);
                     handleReportBiometricAuthFailure(failInfo.getUserId());
                     break;
                 case MSG_REPORT_BIOMETRIC_AUTH_ERROR:
@@ -329,6 +334,30 @@ public class AuthenticationPolicyService extends SystemService {
             mSecureLockDeviceService.onStrongBiometricAuthenticationSuccess(UserHandle.of(userId));
         }
         reportAuthAttempt(TYPE_BIOMETRIC_AUTH, /* success */ true, userId);
+    }
+
+    private void requirePrimaryAuthAfterFingerprintFailure(AuthenticationFailedInfo authInfo) {
+        try {
+            if (authInfo.getBiometricSourceType() != BiometricSourceType.FINGERPRINT
+                    || authInfo.getRequestReason()
+                            != BiometricRequestConstants.REASON_AUTH_KEYGUARD) {
+                return;
+            }
+            final int userId = authInfo.getUserId();
+            final int parentUserId = mUserManager.getProfileParentId(userId);
+            if (!ExtSettings.FINGERPRINT_SINGLE_ATTEMPT.get(getContext(), parentUserId)) {
+                return;
+            }
+            Slog.i(TAG, "Fingerprint single attempt: requiring primary credential, userId="
+                    + userId + ", parentUserId=" + parentUserId);
+            mLockPatternUtils.requireStrongAuth(STRONG_AUTH_REQUIRED_AFTER_LOCKOUT, userId);
+            if (parentUserId != userId) {
+                mLockPatternUtils.requireStrongAuth(STRONG_AUTH_REQUIRED_AFTER_LOCKOUT,
+                        parentUserId);
+            }
+        } catch (RuntimeException e) {
+            Slog.e(TAG, "Unable to enforce fingerprint single attempt", e);
+        }
     }
 
     private void handleReportBiometricAuthFailure(int userId) {

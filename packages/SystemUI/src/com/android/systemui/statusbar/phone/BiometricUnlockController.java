@@ -839,6 +839,23 @@ public class BiometricUnlockController extends KeyguardUpdateMonitorCallback imp
             mLatencyTracker.onActionCancel(action);
         }
 
+        if (biometricSourceType == BiometricSourceType.FINGERPRINT
+                && mUpdateMonitor.isFingerprintSingleAttemptEnabled()) {
+            try {
+                if (!mUpdateMonitor.isGoingToSleep()
+                        && (mKeyguardStateController.isShowing()
+                                || !mUpdateMonitor.isDeviceInteractive())) {
+                    startWakeAndUnlock(
+                            MODE_SHOW_BOUNCER,
+                            BiometricUnlockSource.Companion.fromBiometricSourceType(
+                                    biometricSourceType));
+                    UI_EVENT_LOGGER.log(BiometricUiEvent.BIOMETRIC_BOUNCER_SHOWN, getSessionId());
+                }
+                cleanup();
+                return;
+            } catch (RuntimeException ignored) {}
+        }
+
         final boolean screenOff = !mUpdateMonitor.isDeviceInteractive();
         if (!mVibratorHelper.hasVibrator() && screenOff) {
             mLogger.d("wakeup device on authentication failure (device doesn't have a vibrator)");

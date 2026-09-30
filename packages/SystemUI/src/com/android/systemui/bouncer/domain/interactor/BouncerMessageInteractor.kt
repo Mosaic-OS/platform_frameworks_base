@@ -131,6 +131,16 @@ constructor(
                 ) {
                     return
                 }
+                try {
+                    if (
+                        biometricSourceType == BiometricSourceType.FINGERPRINT &&
+                            updateMonitor.isFingerprintSingleAttemptEnabled() &&
+                            !updateMonitor.isUnlockingWithFingerprintAllowedSafe()
+                    ) {
+                        // A queued failure must not bring back the retry prompt.
+                        return
+                    }
+                } catch (_: RuntimeException) {}
                 setMessage(
                     when (biometricSourceType) {
                         BiometricSourceType.FINGERPRINT ->
