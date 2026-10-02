@@ -43,6 +43,8 @@ import android.widget.ProgressBar;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
+import com.android.packageinstaller.bundle.BundleInstallSource;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -66,10 +68,24 @@ public class InstallStaging extends Activity {
     private int mStagedSessionId;
 
     private AlertDialog mDialog;
+    private boolean mBundleRejected;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        if (BundleInstallSource.isBundle(getIntent())) {
+            mBundleRejected = true;
+            setResult(RESULT_FIRST_USER, new Intent().putExtra(Intent.EXTRA_INSTALL_RESULT,
+                    PackageManager.INSTALL_FAILED_INVALID_APK));
+            mDialog = new AlertDialog.Builder(this)
+                    .setMessage(R.string.bundle_error_v1)
+                    .setPositiveButton(R.string.ok, (dialog, which) -> finish())
+                    .setOnCancelListener(dialog -> finish())
+                    .create();
+            mDialog.show();
+            return;
+        }
 
         mInstaller = getPackageManager().getPackageInstaller();
 
@@ -114,6 +130,10 @@ public class InstallStaging extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+
+        if (mBundleRejected) {
+            return;
+        }
 
         // This is the first onResume in a single life of the activity.
         if (mStagingTask == null) {

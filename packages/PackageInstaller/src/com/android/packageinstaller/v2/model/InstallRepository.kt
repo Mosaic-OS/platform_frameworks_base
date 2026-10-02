@@ -49,6 +49,10 @@ import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import com.android.packageinstaller.R
+import com.android.packageinstaller.bundle.BundleException
+import com.android.packageinstaller.bundle.BundleInstallSource
+import com.android.packageinstaller.bundle.BundleSessionStager
 import com.android.packageinstaller.common.EventResultPersister
 import com.android.packageinstaller.common.EventResultPersister.OutOfIdsException
 import com.android.packageinstaller.common.InstallEventReceiver
@@ -77,6 +81,7 @@ import com.android.packageinstaller.v2.ui.SpecialRuntimePermUtils
 import java.io.File
 import java.io.IOException
 import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.Job
@@ -139,6 +144,8 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
     private var originatingUidFromSessionInfo = Process.INVALID_UID
     private var callingPackage: String? = null
     private var sessionStager: SessionStager? = null
+    private var bundleStager: BundleSessionStager? = null
+    private var bundlePreview: BundleSessionStager.Result? = null
     private lateinit var intent: Intent
     private lateinit var appOpRequestInfo: AppOpRequestInfo
     private lateinit var appSnippet: PackageUtil.AppSnippet
@@ -392,6 +399,10 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
         ) {
             // For a session based install or installing with a package:// URI, there is no file
             // for us to stage.
+            if (stagedSessionId > 0 && BundleInstallSource.isBundle(intent)) {
+                stageBundle(uri!!, stagedSessionId)
+                return
+            }
             _stagingResult.value = InstallReady()
             return
         }
@@ -399,6 +410,10 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
             && ContentResolver.SCHEME_CONTENT == uri.scheme
             && canPackageQuery(context, callingUid, uri)
         ) {
+            if (BundleInstallSource.isBundle(intent)) {
+                stageBundle(uri)
+                return
+            }
             if (stagedSessionId > 0) {
                 val info: SessionInfo? = packageInstaller.getSessionInfo(stagedSessionId)
                 if (info == null || !info.isActive || info.resolvedBaseApkPath == null) {
@@ -462,6 +477,37 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
                 ),
                 activityResultCode = Activity.RESULT_FIRST_USER
             )
+        }
+    }
+
+    @OptIn(DelicateCoroutinesApi::class)
+    private fun stageBundle(uri: Uri, existingSessionId: Int = SessionInfo.INVALID_ID) {
+        val stager = BundleSessionStager(context)
+        bundleStager = stager
+        stagingJob = GlobalScope.launch(Dispatchers.Main) {
+            try {
+                val preview = if (existingSessionId > 0) stager.restore(existingSessionId) else {
+                    stager.stage(uri, createSessionParams(originatingUid, intent, null, "bundle"))
+                }
+                bundlePreview = preview
+                stagedSessionId = preview.sessionId
+                piaStagesLatencyTracker.setSessionId(stagedSessionId)
+                _stagingResult.value = InstallReady()
+            } catch (e: CancellationException) {
+                stager.cancel()
+                throw e
+            } catch (e: Exception) {
+                cleanupStagingSession()
+                _stagingResult.value = InstallAborted(
+                    ABORT_REASON_INTERNAL_ERROR,
+                    resultIntent = Intent().putExtra(Intent.EXTRA_INSTALL_RESULT,
+                        PackageManager.INSTALL_FAILED_INVALID_APK),
+                    activityResultCode = Activity.RESULT_FIRST_USER,
+                    errorDialogType = DLG_PACKAGE_ERROR,
+                    bundleErrorRes = (e as? BundleException)?.errorRes
+                        ?: R.string.bundle_error_invalid
+                )
+            }
         }
     }
 
@@ -736,7 +782,7 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
 
             ContentResolver.SCHEME_FILE -> {
                 val sourceFile = packageUri.path?.let { File(it) }
-                newPackageInfo = sourceFile?.let {
+                newPackageInfo = bundlePreview?.packageInfo ?: sourceFile?.let {
                     getPackageInfo(context, it, PackageManager.GET_PERMISSIONS)
                 }
 
@@ -759,7 +805,8 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
                 if (localLogv) {
                     Log.i(LOG_TAG, "Creating snippet for local file $sourceFile")
                 }
-                appSnippet = getAppSnippet(context, newPackageInfo!!, sourceFile!!)
+                appSnippet = bundlePreview?.snippet
+                    ?: getAppSnippet(context, newPackageInfo!!, sourceFile!!)
             }
 
             else -> {
@@ -773,7 +820,10 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
 
         return InstallUserActionRequired(USER_ACTION_REASON_INSTALL_CONFIRMATION, appSnippet,
             isAppUpdating, existingUpdateOwner, requestedUpdateOwner,
-            packageInfo = newPackageInfo)
+            packageInfo = newPackageInfo,
+            bundleVersion = bundlePreview?.packageInfo?.let {
+                context.getString(R.string.bundle_version, it.versionName ?: it.longVersionCode.toString())
+            })
     }
 
     /**
@@ -1141,6 +1191,10 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
         )
         try {
             val session = packageInstaller.openSession(stagedSessionId)
+            if (bundlePreview != null) {
+                // Bundle staging markers must not be installed as the app's own metadata
+                session.setAppMetadata(null)
+            }
             SpecialRuntimePermUtils.updatePermissionStates(packageInstaller,
                 stagedSessionId, specialPermissionStates)
             session.commit(pendingIntent.intentSender)
@@ -1178,7 +1232,8 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
                 appSnippet,
                 shouldReturnResult,
                 isAppUpdating,
-                resultIntent
+                resultIntent,
+                bundleHasObb = bundlePreview?.hasObb == true
             )
         } else {
             // TODO (b/346655018): Use INSTALL_FAILED_ABORTED legacyCode in the condition
@@ -1203,7 +1258,8 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
             } else if (userDenied) {
                 _installResult.value = InstallAborted(ABORT_REASON_INTERNAL_ERROR)
             } else {
-                _installResult.value = InstallFailed(appSnippet, legacyStatus, statusCode, message)
+                _installResult.value = InstallFailed(appSnippet, legacyStatus, statusCode, message,
+                    bundleInstall = bundlePreview != null)
             }
         }
     }
@@ -1229,6 +1285,7 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
     }
 
     fun abortStaging() {
+        bundleStager?.cancel()
         sessionStager?.cancel()
         if (this::stagingJob.isInitialized) {
             stagingJob.cancel()
@@ -1237,7 +1294,11 @@ class InstallRepository(private val context: Context) : EventResultPersister.Eve
     }
 
     val stagingProgress: LiveData<Int>
-        get() = sessionStager?.progress ?: MutableLiveData(0)
+        get() = bundleStager?.progress ?: sessionStager?.progress ?: MutableLiveData(0)
+
+    fun cancelBundleStaging() {
+        if (bundleStager != null && bundlePreview == null) abortStaging()
+    }
 
     /** Override the callback method of the EventResultPersister.EventResultObserver */
     override fun onResult(

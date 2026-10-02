@@ -55,6 +55,7 @@ data class InstallUserActionRequired(
     val unknownSourcePackageName: String? = null,
     val verificationInfo: PackageInstaller.DeveloperVerificationUserConfirmationInfo? = null,
     val packageInfo: PackageInfo? = null,
+    val bundleVersion: String? = null,
 ) : InstallStage(STAGE_USER_ACTION_REQUIRED) {
 
     val appIcon: Drawable?
@@ -108,6 +109,7 @@ data class InstallSuccess(
      * the newly installed / updated app if a launchable activity exists.
      */
     val resultIntent: Intent? = null,
+    val bundleHasObb: Boolean = false,
 ) : InstallStage(STAGE_SUCCESS) {
 
     val appIcon: Drawable?
@@ -127,7 +129,8 @@ data class InstallFailed(
      * If the caller is requesting a result back, this will hold an Intent with
      * [Intent.EXTRA_INSTALL_RESULT] set to the [PackageInstaller.EXTRA_LEGACY_STATUS].
      */
-    val resultIntent: Intent? = null
+    val resultIntent: Intent? = null,
+    val bundleInstall: Boolean = false,
 ) : InstallStage(STAGE_FAILED) {
 
     val appIcon: Drawable?
@@ -155,6 +158,7 @@ data class InstallAborted(
     val resultIntent: Intent? = null,
     val activityResultCode: Int = Activity.RESULT_CANCELED,
     val errorDialogType: Int? = DLG_NONE,
+    val bundleErrorRes: Int = 0,
 ) : InstallStage(STAGE_ABORTED) {
 
     companion object {

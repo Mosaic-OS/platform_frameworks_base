@@ -61,6 +61,17 @@
                 <data android:mimeType="application/vnd.android.package-archive" />
             </intent-filter>
             <intent-filter android:priority="1">
+                <action android:name="android.intent.action.VIEW" />
+                <action android:name="android.intent.action.INSTALL_PACKAGE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:scheme="content" />
+                <data android:mimeType="application/vnd.android.apks" />
+                <data android:mimeType="application/vnd.android.xapk" />
+                <data android:mimeType="application/vnd.android.apkm" />
+                <data android:mimeType="application/vnd.apkm" />
+                <data android:mimeType="application/xapk-package-archive" />
+            </intent-filter>
+            <intent-filter android:priority="1">
                 <action android:name="android.intent.action.INSTALL_PACKAGE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:scheme="package" />

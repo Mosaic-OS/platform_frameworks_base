@@ -131,4 +131,17 @@
     <string name="unarchive_settings_button" msgid="3504171760009177425">"Beállítások"</string>
     <string name="close" msgid="5214897374055647996">"Bezárás"</string>
     <string name="allow_network_permission_checkbox">Hálózati hozzáférés engedélyezése</string>
+    <string name="bundle_error_invalid">Az alkalmazáscsomag sérült vagy nem támogatott formátumú. A titkosított és a régebbi APKM fájlok nem támogatottak.</string>
+    <string name="bundle_error_encrypted">Az alkalmazáscsomag titkosított. A telepítéshez szerezzen be egy titkosítatlan APK készletet.</string>
+    <string name="bundle_error_limit">Az alkalmazáscsomag túl nagy, vagy túl sok fájlt vagy metaadat bejegyzést tartalmaz.</string>
+    <string name="bundle_error_no_base">Az alkalmazáscsomag nem tartalmaz alap APK-t.</string>
+    <string name="bundle_error_mixed">A csomagban lévő APK-k csomagneve, verziója vagy aláírása eltér, vagy a csomag ismétlődő alap APK-t vagy osztott APK-t tartalmaz.</string>
+    <string name="bundle_error_incomplete">Az alkalmazáscsomagból kötelező osztott APK-k hiányoznak. Szerezzen be egy teljes csomagot az Ön eszközéhez.</string>
+    <string name="bundle_error_incompatible">Az alkalmazáscsomag nem tartalmaz az Ön eszközével kompatibilis APK-kat.</string>
+    <string name="bundle_error_unsupported">Az alkalmazáscsomag nem támogatott ZIP-funkciókat vagy eszközcélzást használ. Exportáljon egy szabványos, titkosítatlan APK készletet az Ön eszközéhez.</string>
+    <string name="bundle_error_io">Az alkalmazáscsomag nem olvasható vagy nem készíthető elő. Ellenőrizze a fájlhoz való hozzáférést és a szabad tárhelyet, majd próbálja újra.</string>
+    <string name="bundle_error_v1">A csomagtelepítő ezen verziójával nem telepíthetők alkalmazáscsomagok.</string>
+    <string name="bundle_obb_skipped">Az alkalmazás a csomagban lévő kiegészítő adatok (OBB) nélkül lett telepítve. Előfordulhat, Önnek kell ezeket az alkalmazáson belül letöltenie.</string>
+    <string name="bundle_version">Verzió: %1$s</string>
+    <string name="bundle_error_install">Az alkalmazáscsomag nem telepíthető. Az APK-k érvénytelenek, nem kompatibilisek az Ön eszközével, vagy ütköznek egy telepített alkalmazással. Ellenőrizze a szabad tárhelyet, és szerezzen be egy kompatibilis csomagot.</string>
 </resources>

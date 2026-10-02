@@ -258,6 +258,9 @@ public class InstallationFragment extends DialogFragment {
 
         // Set the message
         mCustomMessageTextView.setText(R.string.message_parse_failed);
+        if (installStage.getBundleErrorRes() != 0) {
+            mCustomMessageTextView.setText(installStage.getBundleErrorRes());
+        }
 
         // Set the title
         dialog.setTitle(R.string.title_cant_install_app);
@@ -337,6 +340,11 @@ public class InstallationFragment extends DialogFragment {
             default -> {
                 mCustomMessageTextView.setVisibility(View.GONE);
             }
+        }
+
+        if (installStage.getBundleInstall()) {
+            mCustomMessageTextView.setText(R.string.bundle_error_install);
+            mCustomMessageTextView.setVisibility(View.VISIBLE);
         }
 
         // Set the title
@@ -446,6 +454,10 @@ public class InstallationFragment extends DialogFragment {
 
     private void updateInstallSuccessUI(Dialog dialog, InstallSuccess installStage) {
         mCustomMessageTextView.setVisibility(View.GONE);
+        if (installStage.getBundleHasObb()) {
+            mCustomMessageTextView.setText(R.string.bundle_obb_skipped);
+            mCustomMessageTextView.setVisibility(View.VISIBLE);
+        }
         mIndeterminateProgressBar.setVisibility(View.GONE);
         mProgressBar.setVisibility(View.GONE);
 
@@ -637,6 +649,9 @@ public class InstallationFragment extends DialogFragment {
         // Set the app icon and label
         mAppIcon.setImageDrawable(installStage.getAppIcon());
         mAppLabelTextView.setText(installStage.getAppLabel());
+        if (installStage.getBundleVersion() != null) {
+            mAppLabelTextView.append("\n" + installStage.getBundleVersion());
+        }
 
         // Set the title and the message
         String title = null;
@@ -710,11 +725,22 @@ public class InstallationFragment extends DialogFragment {
         }
     }
 
+    private boolean mBundleIndeterminate;
+
     /**
      * Set the progress of the progress bar
      */
     public void setProgress(int progress) {
         if (mProgressBar != null) {
+            if (progress == -2) {
+                mBundleIndeterminate = true;
+                mProgressBar.setIndeterminate(true);
+                return;
+            }
+            if (progress >= 0 && mBundleIndeterminate) {
+                mProgressBar.setIndeterminate(false);
+                mBundleIndeterminate = false;
+            }
             mProgressBar.setProgress(progress);
         }
     }

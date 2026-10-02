@@ -54,6 +54,9 @@
 ?application/ttml+xml ttml dfxp
 ?application/vnd.android.haptics.vibration+xml ahv
 ?application/vnd.android.ota ota
+application/vnd.android.apks apks
+application/xapk-package-archive xapk
+application/vnd.apkm apkm
 ?application/vnd.apple.mpegurl m3u8
 ?application/vnd.apple.pkpass pkpass
 ?application/vnd.apple.pkpasses pkpasses

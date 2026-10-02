@@ -365,4 +365,17 @@
     <string name="close">Close</string>
 
     <string name="allow_network_permission_checkbox">Allow Network permission</string>
+    <string name="bundle_error_invalid">This app bundle is damaged or uses an unsupported format. Encrypted and older APKM files are not supported.</string>
+    <string name="bundle_error_encrypted">This app bundle is encrypted. Obtain an unencrypted APK set to install it.</string>
+    <string name="bundle_error_limit">This app bundle is too large or contains too many files or metadata entries.</string>
+    <string name="bundle_error_no_base">This app bundle has no base APK.</string>
+    <string name="bundle_error_mixed">The APKs in this bundle have different package names, versions or signatures, or contain duplicate base or split APKs.</string>
+    <string name="bundle_error_incomplete">This app bundle is missing required splits. Obtain a complete bundle for your device.</string>
+    <string name="bundle_error_incompatible">This app bundle does not contain compatible APKs for your device.</string>
+    <string name="bundle_error_unsupported">This app bundle uses unsupported ZIP or device targeting features. Export a standard, unencrypted APK set for your device.</string>
+    <string name="bundle_error_io">The app bundle could not be read or staged. Check access to the file and available storage, then try again.</string>
+    <string name="bundle_error_v1">App bundles cannot be installed with this version of the package installer.</string>
+    <string name="bundle_obb_skipped">The app was installed without the additional data (OBB) included in this bundle. You may need to download that data in the app.</string>
+    <string name="bundle_version">Version %1$s</string>
+    <string name="bundle_error_install">The app bundle could not be installed. Its APKs may be invalid, incompatible with this device, or in conflict with an installed app. Check available storage and obtain a compatible bundle.</string>
 </resources>

@@ -189,6 +189,7 @@ class InstallViewModel(application: Application, val repository: InstallReposito
 
     override fun onCleared() {
         super.onCleared()
+        repository.cancelBundleStaging()
         // Catch-all: Ensure the latency tracker always dispatches the atom
         // when the PackageInstaller UI is closed or finishes early.
         repository.piaStagesLatencyTracker.stopRecordingAndLog()

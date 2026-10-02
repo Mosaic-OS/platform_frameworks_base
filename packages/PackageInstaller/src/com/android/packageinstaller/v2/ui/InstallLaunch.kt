@@ -173,6 +173,10 @@ class InstallLaunch : FragmentActivity(), InstallActionListener {
             InstallStage.STAGE_SUCCESS -> {
                 val success = installStage as InstallSuccess
                 if (success.shouldReturnResult) {
+                    if (success.bundleHasObb) {
+                        android.widget.Toast.makeText(this, R.string.bundle_obb_skipped,
+                            android.widget.Toast.LENGTH_LONG).show()
+                    }
                     val successIntent = success.resultIntent
                     setResult(RESULT_OK, successIntent, true)
                 } else {
