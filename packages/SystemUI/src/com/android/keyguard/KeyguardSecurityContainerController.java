@@ -179,6 +179,7 @@ public class KeyguardSecurityContainerController extends ViewController<Keyguard
 
     private SecurityMode mCurrentSecurityMode = SecurityMode.Invalid;
     private int mCurrentUser = UserHandle.USER_NULL;
+    private int mSecurityScreenUserId = UserHandle.USER_NULL;
     private UserSwitcherController.UserSwitchCallback mUserSwitchCallback =
             new UserSwitcherController.UserSwitchCallback() {
                 @Override
@@ -690,8 +691,9 @@ public class KeyguardSecurityContainerController extends ViewController<Keyguard
      */
     public void showPrimarySecurityScreen(boolean turningOff) {
         if (DEBUG) Log.d(TAG, "show()");
-        SecurityMode securityMode = whitelistIpcs(() -> mSecurityModel.getSecurityMode(
-                mSelectedUserInteractor.getSelectedUserId()));
+        final int userId = mSelectedUserInteractor.getSelectedUserId();
+        SecurityMode securityMode = whitelistIpcs(() -> mSecurityModel.getSecurityMode(userId));
+        mSecurityScreenUserId = userId;
         if (DEBUG) Log.v(TAG, "showPrimarySecurityScreen(turningOff=" + turningOff + ")");
         mPrimaryBouncerInteractor.get().setLastShownPrimarySecurityScreen(securityMode);
         showSecurityScreen(securityMode);
@@ -777,6 +779,11 @@ public class KeyguardSecurityContainerController extends ViewController<Keyguard
      * @return True if the keyguard is done.
      */
     public boolean dismiss(int targetUserId) {
+        // The user switch callback runs after the switch, too late for a dismiss sent during it.
+        if (targetUserId == mSelectedUserInteractor.getSelectedUserId()
+                && targetUserId != mSecurityScreenUserId) {
+            showPrimarySecurityScreen(false);
+        }
         return mKeyguardSecurityCallback.dismiss(false, targetUserId, false,
                 getCurrentSecurityMode());
     }
