@@ -16,18 +16,10 @@
 
 package android.content;
 
+import android.content.ProfileInboxEntry;
+
 /** @hide */
-parcelable ClipboardQueueEntry {
-    String id;
-    int senderId;
-    int senderSerial;
-    String senderName;
-    boolean senderNameAmbiguous;
-    String mimeType;
-    int size;
-    long createdAt;
-    long expiresAt;
-    long expiresElapsedRealtime;
-    boolean sensitive;
-    byte[] sha256;
+parcelable ProfileInboxContents {
+    ProfileInboxEntry[] entries;
+    long lastExpiredAt;
 }

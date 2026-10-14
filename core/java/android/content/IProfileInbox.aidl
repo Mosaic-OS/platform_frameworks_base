@@ -16,13 +16,13 @@
 
 package android.content;
 
-import android.content.ClipboardQueueInbox;
-import android.content.ClipboardQueueTarget;
+import android.content.ProfileInboxContents;
+import android.content.ProfileInboxTarget;
 
 /** @hide */
-interface IClipboardQueue {
+interface IProfileInbox {
     @PermissionManuallyEnforced
-    ClipboardQueueTarget[] getTargets();
+    ProfileInboxTarget[] getTargets();
     @PermissionManuallyEnforced
     String beginInsert(int targetId, int targetSerial, String mimeType, int size,
             in byte[] sha256, boolean sensitive);
@@ -33,7 +33,7 @@ interface IClipboardQueue {
     @PermissionManuallyEnforced
     void abortInsert(String id);
     @PermissionManuallyEnforced
-    ClipboardQueueInbox listInbox();
+    ProfileInboxContents listInbox();
     @PermissionManuallyEnforced
     byte[] read(String id, int offset);
     @PermissionManuallyEnforced

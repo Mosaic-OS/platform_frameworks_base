@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-package com.android.server.clipboard;
+package com.android.server.profileinbox;
 
-import static android.content.ClipboardQueueContract.*;
+import static android.content.ProfileInboxContract.*;
 
-import android.content.ClipboardQueueEntry;
+import android.content.ProfileInboxEntry;
 import android.content.ContentValues;
 import android.content.pm.UserInfo;
 import android.database.Cursor;
@@ -37,13 +37,19 @@ import android.util.Slog;
 import java.io.File;
 import java.io.FileDescriptor;
 import java.io.IOException;
+import java.nio.file.FileVisitResult;
+import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
+import java.nio.file.SimpleFileVisitor;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.UUID;
 
-final class ClipboardQueueStore {
-    private static final String TAG = "ClipboardQueueStore";
+final class ProfileInboxStore {
+    private static final String TAG = "ProfileInboxStore";
     private static final long MAX_DATABASE_BYTES = 192L * 1024 * 1024;
     private static final long CLOCK_PERSIST_MILLIS = 30_000;
     private final SQLiteDatabase mDb;
@@ -52,13 +58,15 @@ final class ClipboardQueueStore {
     private long mNow;
     private long mElapsed;
 
-    ClipboardQueueStore(long clockFloor, long floorElapsed) throws IOException, ErrnoException {
-        String stage = "create_directory";
+    ProfileInboxStore(long clockFloor, long floorElapsed) throws IOException, ErrnoException {
+        String stage = "migrate_directory";
         SQLiteDatabase database = null;
         try {
-            File directory = new File(Environment.getDataSystemDirectory(), "clipboard_queue");
+            File directory = new File(Environment.getDataSystemDirectory(), "profile_inbox");
+            migrateLegacyDirectory(directory);
+            stage = "create_directory";
             if (!directory.isDirectory() && !directory.mkdir()) {
-                throw new IOException("Queue directory unavailable");
+                throw new IOException("Profile inbox directory unavailable");
             }
             stage = "chmod_directory";
             Os.chmod(directory.getPath(), 0700);
@@ -83,7 +91,7 @@ final class ClipboardQueueStore {
                             .setJournalMode("DELETE")
                             .setSynchronousMode("FULL")
                             .setErrorHandler(db -> {
-                                throw new SQLiteDatabaseCorruptException("Queue storage unavailable");
+                                throw new SQLiteDatabaseCorruptException("Profile inbox storage unavailable");
                             })
                             .build());
             mDb = database;
@@ -98,7 +106,7 @@ final class ClipboardQueueStore {
             String journal = DatabaseUtils.stringForQuery(mDb, "PRAGMA journal_mode", null);
             if (secureDelete != 1 || tempStore != 2 || synchronous != 2
                     || !"delete".equalsIgnoreCase(journal)) {
-                throw new IOException("Queue durability configuration: secure_delete=" + secureDelete
+                throw new IOException("Profile inbox durability configuration: secure_delete=" + secureDelete
                         + " synchronous=" + synchronous + " journal_mode=" + journal);
             }
             stage = "maximum_size";
@@ -123,7 +131,7 @@ final class ClipboardQueueStore {
                     mDb.execSQL("INSERT INTO clock VALUES (0)");
                     mDb.setVersion(1);
                 } else if (mDb.getVersion() != 1 && mDb.getVersion() != 2) {
-                    throw new IOException("Unsupported queue schema");
+                    throw new IOException("Unsupported profile inbox schema");
                 }
                 if (mDb.getVersion() == 1) {
                     mDb.execSQL("CREATE TABLE expiry_notices (sender_id INTEGER NOT NULL,"
@@ -146,7 +154,7 @@ final class ClipboardQueueStore {
             mElapsed = SystemClock.elapsedRealtime();
             mClockPersistedElapsed = mElapsed;
             mNow = Math.max(mNow, saturatedAdd(clockFloor, Math.max(0, mElapsed - floorElapsed)));
-            stage = "sync_queue_directory";
+            stage = "sync_profile_inbox_directory";
             syncDirectory(directory);
             Slog.i(TAG, "storage_ready: secure_delete=1 synchronous=2 journal_mode=delete");
         } catch (IOException | ErrnoException | RuntimeException e) {
@@ -160,6 +168,31 @@ final class ClipboardQueueStore {
             }
             throw e;
         }
+    }
+
+    private static void migrateLegacyDirectory(File directory) throws IOException {
+        File legacy = new File(directory.getParentFile(), "clipboard_queue");
+        if (Files.notExists(legacy.toPath(), LinkOption.NOFOLLOW_LINKS)) return;
+        if (Files.notExists(directory.toPath(), LinkOption.NOFOLLOW_LINKS) && legacy.renameTo(directory)) {
+            Slog.i(TAG, "storage_migration/renamed");
+            return;
+        }
+        Slog.w(TAG, "storage_migration/discarding_legacy");
+        Files.walkFileTree(legacy.toPath(), new SimpleFileVisitor<Path>() {
+            @Override
+            public FileVisitResult visitFile(Path file, BasicFileAttributes attributes) throws IOException {
+                Files.delete(file);
+                return FileVisitResult.CONTINUE;
+            }
+
+            @Override
+            public FileVisitResult postVisitDirectory(Path dir, IOException error) throws IOException {
+                if (error != null) throw error;
+                Files.delete(dir);
+                return FileVisitResult.CONTINUE;
+            }
+        });
+        Slog.i(TAG, "storage_migration/legacy_deleted");
     }
 
     private static void syncDirectory(File directory) throws ErrnoException {
@@ -379,8 +412,8 @@ final class ClipboardQueueStore {
                 new Object[] {now, expiryAfter(now, RETENTION_MILLIS), id});
     }
 
-    ClipboardQueueEntry[] list(UserInfo recipient) {
-        ArrayList<ClipboardQueueEntry> entries = new ArrayList<>();
+    ProfileInboxEntry[] list(UserInfo recipient) {
+        ArrayList<ProfileInboxEntry> entries = new ArrayList<>();
         try (Cursor cursor = mDb.rawQuery("SELECT id,sender_id,sender_serial,mime,size,"
                 + "created,expires,sensitive,sha256 FROM items WHERE recipient_id=?"
                 + " AND recipient_serial=? AND committed=1 ORDER BY created DESC,id",
@@ -388,7 +421,7 @@ final class ClipboardQueueStore {
                         Integer.toString(recipient.serialNumber)})) {
             while (cursor.moveToNext()) {
                 if (cursor.getLong(6) <= now()) continue;
-                ClipboardQueueEntry entry = new ClipboardQueueEntry();
+                ProfileInboxEntry entry = new ProfileInboxEntry();
                 entry.id = cursor.getString(0);
                 entry.senderId = cursor.getInt(1);
                 entry.senderSerial = cursor.getInt(2);
@@ -402,7 +435,7 @@ final class ClipboardQueueStore {
                 entries.add(entry);
             }
         }
-        return entries.toArray(new ClipboardQueueEntry[0]);
+        return entries.toArray(new ProfileInboxEntry[0]);
     }
 
     ArrayList<ExpiryNotice> expiryNotices(UserInfo recipient) {
@@ -492,7 +525,7 @@ final class ClipboardQueueStore {
     }
 
     private static ServiceSpecificException error(int code) {
-        return new ServiceSpecificException(code, "Queue operation refused");
+        return new ServiceSpecificException(code, "Profile inbox operation refused");
     }
 
     static final class ExpiryNotice {

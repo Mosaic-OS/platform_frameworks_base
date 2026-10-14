@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; licensed under the Apache License, Version 2.0. -->
+<androidx.coordinatorlayout.widget.CoordinatorLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/profile_inbox_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:focusableInTouchMode="true"
+    android:saveEnabled="false"
+    android:importantForAutofill="noExcludeDescendants"
+    android:importantForContentCapture="noExcludeDescendants"
+    android:background="?attr/colorSurface">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <com.google.android.material.appbar.MaterialToolbar
+            android:id="@+id/profile_inbox_toolbar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:minHeight="?attr/actionBarSize"
+            app:navigationIcon="@drawable/ic_arrow_back"
+            app:navigationIconTint="?attr/colorOnSurface"
+            app:titleTextAppearance="@style/TextAppearance.Material3.TitleLarge" />
+
+        <com.android.systemui.profileinbox.ProfileInboxTabs
+            android:id="@+id/profile_inbox_tabs"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:layout_marginBottom="8dp"
+            android:orientation="horizontal">
+
+            <android.widget.Button
+                android:id="@+id/profile_inbox_send_tab"
+                style="@style/ProfileInbox.Segment"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:text="@string/profile_inbox_send" />
+
+            <android.widget.Button
+                android:id="@+id/profile_inbox_inbox_tab"
+                style="@style/ProfileInbox.Segment"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:minHeight="48dp"
+                android:text="@string/profile_inbox_inbox" />
+        </com.android.systemui.profileinbox.ProfileInboxTabs>
+
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/profile_inbox_progress"
+            style="@style/Widget.Material3.LinearProgressIndicator"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:indeterminate="true"
+            android:contentDescription="@string/profile_inbox_progress"
+            android:visibility="invisible"
+            app:indeterminateAnimationType="disjoint"
+            app:trackCornerRadius="50%"
+            app:hideAnimationBehavior="outward" />
+
+        <com.android.systemui.profileinbox.ProfileInboxPageLayout
+            android:id="@+id/profile_inbox_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/profile_inbox_about"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="24dp"
+            android:layout_marginEnd="24dp"
+            android:minHeight="48dp"
+            android:text="@string/profile_inbox_about" />
+    </LinearLayout>
+</androidx.coordinatorlayout.widget.CoordinatorLayout>

@@ -13,6 +13,7 @@ import com.android.systemui.qs.pipeline.data.model.RestoreData
 import com.android.systemui.qs.pipeline.data.repository.QSSettingsRestoredRepository.Companion.BUFFER_CAPACITY
 import com.android.systemui.qs.pipeline.data.repository.TilesSettingConverter.toTilesList
 import com.android.systemui.qs.pipeline.shared.InternetTileMigration.migrateInternetTile
+import com.android.systemui.qs.pipeline.shared.ProfileInboxTileMigration.migrateProfileInboxTile
 import com.android.systemui.qs.pipeline.shared.logging.QSPipelineLogger
 import com.android.systemui.statusbar.policy.DeviceProvisionedController
 import com.android.systemui.util.kotlin.emitOnStart
@@ -186,8 +187,9 @@ constructor(
             }
         }
 
-        private fun String.toTilesList() = toTilesList(this)
+        private fun String.toTilesList() = toTilesList(this).migrateProfileInboxTile()
 
-        private fun String.toTilesSet() = TilesSettingConverter.toTilesSet(this)
+        private fun String.toTilesSet() =
+            TilesSettingConverter.toTilesSet(this).migrateProfileInboxTile()
     }
 }

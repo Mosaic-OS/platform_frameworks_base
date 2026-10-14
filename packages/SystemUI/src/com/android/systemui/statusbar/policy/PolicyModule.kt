@@ -33,7 +33,7 @@ import com.android.systemui.qs.tiles.BatteryShareTile
 import com.android.systemui.qs.tiles.BluetoothCodecTile
 import com.android.systemui.qs.tiles.CameraToggleTile
 import com.android.systemui.qs.tiles.BypassChargingTile
-import com.android.systemui.qs.tiles.ClipboardShareTile
+import com.android.systemui.qs.tiles.ProfileInboxTile
 import com.android.systemui.qs.tiles.FlashlightTile
 import com.android.systemui.qs.tiles.FlashlightTileWithLevel
 import com.android.systemui.qs.tiles.LocationTile
@@ -518,17 +518,17 @@ interface PolicyModule {
                 category = TileCategory.UTILITIES,
             )
 
-        /** Inject ClipboardShare tile config */
+        /** Inject ProfileInbox tile config */
         @Provides
         @IntoMap
-        @StringKey(ClipboardShareTile.TILE_SPEC)
-        fun provideClipboardShareTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
+        @StringKey(ProfileInboxTile.TILE_SPEC)
+        fun provideProfileInboxTileConfig(uiEventLogger: QsEventLogger): QSTileConfig =
             QSTileConfig(
-                tileSpec = TileSpec.create(ClipboardShareTile.TILE_SPEC),
+                tileSpec = TileSpec.create(ProfileInboxTile.TILE_SPEC),
                 uiConfig =
                     QSTileUIConfig.Resource(
                         iconRes = R.drawable.ic_content_paste,
-                        labelRes = R.string.clipboard_share_title,
+                        labelRes = R.string.profile_inbox_title,
                     ),
                 instanceId = uiEventLogger.getNewInstanceId(),
                 category = TileCategory.PRIVACY,
@@ -590,11 +590,11 @@ interface PolicyModule {
     @StringKey(BypassChargingTile.TILE_SPEC)
     fun bindBypassChargingTile(tile: BypassChargingTile): QSTileImpl<*>
 
-    /** Inject ClipboardShareTile into tileMap in QSModule */
+    /** Inject ProfileInboxTile into tileMap in QSModule */
     @Binds
     @IntoMap
-    @StringKey(ClipboardShareTile.TILE_SPEC)
-    fun bindClipboardShareTile(tile: ClipboardShareTile): QSTileImpl<*>
+    @StringKey(ProfileInboxTile.TILE_SPEC)
+    fun bindProfileInboxTile(tile: ProfileInboxTile): QSTileImpl<*>
 
     /** Inject BluetoothCodecTile into tileMap in QSModule */
     @Binds

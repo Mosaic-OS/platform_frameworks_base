@@ -5,6 +5,7 @@ import android.provider.Settings
 import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.qs.pipeline.data.model.RestoreData
+import com.android.systemui.qs.pipeline.shared.ProfileInboxTileMigration.migrateProfileInboxTile
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.pipeline.shared.logging.QSPipelineLogger
 import com.android.systemui.util.settings.SecureSettings
@@ -53,10 +54,12 @@ constructor(
         if (!::_autoAdded.isInitialized) {
             _autoAdded =
                 changeEvents
-                    .scan(load().also { logger.logAutoAddTilesParsed(userId, it) }) {
+                    .scan(load().migrateProfileInboxTile().also {
+                        logger.logAutoAddTilesParsed(userId, it)
+                    }) {
                         current,
                         change ->
-                        change.apply(current).also {
+                        change.apply(current).migrateProfileInboxTile().also {
                             if (change is RestoreTiles) {
                                 logger.logAutoAddTilesRestoredReconciled(userId, it)
                             }

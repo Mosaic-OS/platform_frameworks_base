@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-package android.content;
+package com.android.systemui.qs.pipeline.shared
 
-import android.content.ClipboardQueueEntry;
+object ProfileInboxTileMigration {
+    private const val LEGACY_TILE_SPEC = "clipboard_share"
+    private const val TILE_SPEC = "profile_inbox"
 
-/** @hide */
-parcelable ClipboardQueueInbox {
-    ClipboardQueueEntry[] entries;
-    long lastExpiredAt;
+    fun List<TileSpec>.migrateProfileInboxTile(): List<TileSpec> {
+        if (none { it.spec == LEGACY_TILE_SPEC }) return this
+        return map { if (it.spec == LEGACY_TILE_SPEC) TileSpec.create(TILE_SPEC) else it }.distinct()
+    }
+
+    fun Set<TileSpec>.migrateProfileInboxTile(): Set<TileSpec> =
+        toList().migrateProfileInboxTile().toSet()
 }

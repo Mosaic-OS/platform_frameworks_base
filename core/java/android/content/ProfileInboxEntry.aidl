@@ -17,8 +17,17 @@
 package android.content;
 
 /** @hide */
-parcelable ClipboardQueueTarget {
-    int userId;
-    int serialNumber;
-    String name;
+parcelable ProfileInboxEntry {
+    String id;
+    int senderId;
+    int senderSerial;
+    String senderName;
+    boolean senderNameAmbiguous;
+    String mimeType;
+    int size;
+    long createdAt;
+    long expiresAt;
+    long expiresElapsedRealtime;
+    boolean sensitive;
+    byte[] sha256;
 }

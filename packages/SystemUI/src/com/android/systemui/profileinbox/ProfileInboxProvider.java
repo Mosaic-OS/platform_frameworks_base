@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.android.systemui.clipboard;
+package com.android.systemui.profileinbox;
 
-import static android.content.ClipboardQueueContract.MAX_ITEM_BYTES;
+import static android.content.ProfileInboxContract.MAX_ITEM_BYTES;
 
 import android.content.ContentProvider;
 import android.content.ContentProviderClient;
@@ -45,9 +45,9 @@ import java.io.IOException;
 import java.util.HashMap;
 import java.util.UUID;
 
-public final class ClipboardQueueProvider extends ContentProvider {
-    static final String AUTHORITY = "com.android.systemui.clipboardqueue";
-    private static final String TAG = "ClipboardQueueProvider";
+public final class ProfileInboxProvider extends ContentProvider {
+    static final String AUTHORITY = "com.android.systemui.profileinbox";
+    private static final String TAG = "ProfileInboxProvider";
     private static final long LOG_WINDOW_MILLIS = 60_000;
     private static final HashMap<String, Integer> sFailures = new HashMap<>();
     private static final Handler sLogHandler = new Handler(Looper.getMainLooper());
@@ -64,7 +64,14 @@ public final class ClipboardQueueProvider extends ContentProvider {
     public synchronized boolean onCreate() {
         try {
             Context storage = getContext().createCredentialProtectedStorageContext();
-            mFile = new File(new File(storage.getCacheDir(), "clipboard_queue"), "image");
+            File legacy = new File(storage.getCacheDir(), "clipboard_queue");
+            mFile = new File(legacy, "image");
+            if (!clear() || legacy.exists() && !legacy.delete()) {
+                mFile = null;
+                logFailure("legacy_cache_cleanup");
+                return true;
+            }
+            mFile = new File(new File(storage.getCacheDir(), "profile_inbox"), "image");
             clear();
         } catch (RuntimeException e) {
             mFile = null;
@@ -77,7 +84,7 @@ public final class ClipboardQueueProvider extends ContentProvider {
         try (ContentProviderClient client = context.getContentResolver()
                 .acquireContentProviderClient(AUTHORITY)) {
             if (client != null && client.getLocalContentProvider()
-                    instanceof ClipboardQueueProvider provider) provider.prune();
+                    instanceof ProfileInboxProvider provider) provider.prune();
         } catch (RuntimeException e) {
             logFailure("provider_lookup");
         }

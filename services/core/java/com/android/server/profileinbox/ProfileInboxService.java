@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-package com.android.server.clipboard;
+package com.android.server.profileinbox;
 
-import static android.content.ClipboardQueueContract.*;
+import static android.content.ProfileInboxContract.*;
 
 import android.annotation.PermissionManuallyEnforced;
 import android.app.ActivityManagerInternal;
 import android.app.AlarmManager;
 import android.app.KeyguardManager;
 import android.content.BroadcastReceiver;
-import android.content.ClipboardQueueEntry;
-import android.content.ClipboardQueueInbox;
-import android.content.ClipboardQueueTarget;
+import android.content.ProfileInboxEntry;
+import android.content.ProfileInboxContents;
+import android.content.ProfileInboxTarget;
 import android.content.Context;
-import android.content.IClipboardQueue;
+import android.content.IProfileInbox;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.PackageManager;
@@ -55,8 +55,8 @@ import com.android.server.pm.UserManagerInternal;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-public final class ClipboardQueueService extends SystemService {
-    private static final String TAG = "ClipboardQueueService";
+public final class ProfileInboxService extends SystemService {
+    private static final String TAG = "ProfileInboxService";
     private static final long SWEEP_MILLIS = 60L * 60 * 1000;
     private static final long RETRY_MILLIS = 60 * 1000;
     private static final long MAX_RETRY_MILLIS = 60L * 60 * 1000;
@@ -71,11 +71,11 @@ public final class ClipboardQueueService extends SystemService {
     private long mRecoveryElapsed;
     private long mNextAlarm = Long.MAX_VALUE;
     private final Object mLock = new Object();
-    private ClipboardQueueStore mStore;
+    private ProfileInboxStore mStore;
     private Handler mHandler;
     private boolean mFailed;
 
-    public ClipboardQueueService(Context context) {
+    public ProfileInboxService(Context context) {
         super(context);
     }
 
@@ -89,14 +89,14 @@ public final class ClipboardQueueService extends SystemService {
         BroadcastReceiver receiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-                mHandler.post(ClipboardQueueService.this::sweep);
+                mHandler.post(ProfileInboxService.this::sweep);
             }
         };
         try {
             publishBinderService(SERVICE_NAME, mBinder);
             stage = "verify_publish";
             IBinder published = ServiceManager.checkService(SERVICE_NAME);
-            if (published != mBinder) throw new IllegalStateException("Queue binder not published");
+            if (published != mBinder) throw new IllegalStateException("Profile inbox binder not published");
             stage = "register_receiver";
             IntentFilter filter = new IntentFilter(Intent.ACTION_USER_REMOVED);
             filter.addAction(Intent.ACTION_TIME_CHANGED);
@@ -105,7 +105,7 @@ public final class ClipboardQueueService extends SystemService {
                     Context.RECEIVER_NOT_EXPORTED);
             Slog.i(TAG, "service_published: " + SERVICE_NAME);
             stage = "start_storage";
-            if (!mHandler.post(this::sweep)) throw new IllegalStateException("Queue handler stopped");
+            if (!mHandler.post(this::sweep)) throw new IllegalStateException("Profile inbox handler stopped");
         } catch (RuntimeException e) {
             synchronized (mLock) {
                 mFailed = true;
@@ -180,7 +180,7 @@ public final class ClipboardQueueService extends SystemService {
             mNextAlarm = when;
         } catch (RuntimeException e) {
             logFailure("schedule_alarm", e);
-            throw unavailable("Queue expiry alarm unavailable");
+            throw unavailable("Profile inbox expiry alarm unavailable");
         }
     }
 
@@ -230,7 +230,7 @@ public final class ClipboardQueueService extends SystemService {
                         mStore.close();
                         mStore = null;
                     }
-                    mStore = new ClipboardQueueStore(mRecoveryNow, mRecoveryElapsed);
+                    mStore = new ProfileInboxStore(mRecoveryNow, mRecoveryElapsed);
                     mFailed = false;
                 }
                 prune();
@@ -424,16 +424,16 @@ public final class ClipboardQueueService extends SystemService {
 
     private <T> T call(String operation, String chunkId, Operation<T> action) {
         try {
-            getContext().enforceCallingPermission(PERMISSION, "SystemUI queue permission required");
+            getContext().enforceCallingPermission(PERMISSION, "SystemUI profile inbox permission required");
             int uid = Binder.getCallingUid();
             long identity = Binder.clearCallingIdentity();
             try {
                 synchronized (mLock) {
                     UserInfo user = authorize(uid);
                     if (mFailed) {
-                        throw new ServiceSpecificException(ERROR_STORAGE, "Queue storage failed");
+                        throw new ServiceSpecificException(ERROR_STORAGE, "Profile inbox storage failed");
                     }
-                    if (mStore == null) throw unavailable("Queue storage is opening");
+                    if (mStore == null) throw unavailable("Profile inbox storage is opening");
                     try {
                         boolean chunk = "append".equals(operation) || "read".equals(operation);
                         long now = chunk ? mStore.now() : prune();
@@ -472,12 +472,12 @@ public final class ClipboardQueueService extends SystemService {
                     } catch (SQLiteFullException e) {
                         logFailure(operation + "/storage_full", e);
                         retryMaintenance();
-                        throw new ServiceSpecificException(ERROR_FULL, "Queue storage full");
+                        throw new ServiceSpecificException(ERROR_FULL, "Profile inbox storage full");
                     } catch (SQLiteException e) {
                         mFailed = true;
                         retryMaintenance();
                         logFailure(operation + "/storage; existing data retained", e);
-                        throw new ServiceSpecificException(ERROR_STORAGE, "Queue storage failed");
+                        throw new ServiceSpecificException(ERROR_STORAGE, "Profile inbox storage failed");
                     } catch (ServiceSpecificException e) {
                         if (e.errorCode == ERROR_UNAVAILABLE) retryMaintenance();
                         throw e;
@@ -521,26 +521,26 @@ public final class ClipboardQueueService extends SystemService {
         return error;
     }
 
-    private final IClipboardQueue.Stub mBinder = new IClipboardQueue.Stub() {
+    private final IProfileInbox.Stub mBinder = new IProfileInbox.Stub() {
         @Override
         @PermissionManuallyEnforced
-        public ClipboardQueueTarget[] getTargets() {
+        public ProfileInboxTarget[] getTargets() {
             return call("getTargets", access -> {
                 access.requireExport();
-                ArrayList<ClipboardQueueTarget> targets = new ArrayList<>();
+                ArrayList<ProfileInboxTarget> targets = new ArrayList<>();
                 int secret = secretId();
                 for (UserInfo user : users().getUserInfos()) {
                     if (user.id == access.user.id || !eligible(user, secret)
                             || !CrossProfileClipboardAccessSettings.isImportAccessAllowed(
                                     getContext(), user.id)) continue;
                     access.target(user.id, user.serialNumber);
-                    ClipboardQueueTarget target = new ClipboardQueueTarget();
+                    ProfileInboxTarget target = new ProfileInboxTarget();
                     target.userId = user.id;
                     target.serialNumber = user.serialNumber;
                     target.name = profileName(user);
                     targets.add(target);
                 }
-                return targets.toArray(new ClipboardQueueTarget[0]);
+                return targets.toArray(new ProfileInboxTarget[0]);
             });
         }
 
@@ -560,7 +560,7 @@ public final class ClipboardQueueService extends SystemService {
         public void append(String id, int offset, byte[] data) {
             call("append", id, access -> {
                 access.requireExport();
-                ClipboardQueueStore.Pending pending = mStore.pending(id, access.user);
+                ProfileInboxStore.Pending pending = mStore.pending(id, access.user);
                 access.target(pending.targetId, pending.targetSerial);
                 mStore.append(id, pending, offset, data);
                 return null;
@@ -572,7 +572,7 @@ public final class ClipboardQueueService extends SystemService {
         public void commitInsert(String id) {
             call("commitInsert", access -> {
                 access.requireExport();
-                ClipboardQueueStore.Pending pending = mStore.pending(id, access.user);
+                ProfileInboxStore.Pending pending = mStore.pending(id, access.user);
                 access.target(pending.targetId, pending.targetSerial);
                 mStore.commit(id, pending, access.now);
                 return null;
@@ -583,7 +583,7 @@ public final class ClipboardQueueService extends SystemService {
         @PermissionManuallyEnforced
         public void abortInsert(String id) {
             call("abortInsert", access -> {
-                ClipboardQueueStore.Pending pending = mStore.pending(id, access.user);
+                ProfileInboxStore.Pending pending = mStore.pending(id, access.user);
                 access.removalPeer(pending.targetId, pending.targetSerial);
                 mStore.remove(id);
                 return null;
@@ -592,12 +592,12 @@ public final class ClipboardQueueService extends SystemService {
 
         @Override
         @PermissionManuallyEnforced
-        public ClipboardQueueInbox listInbox() {
+        public ProfileInboxContents listInbox() {
             return call("listInbox", access -> {
                 access.requireImport(access.user);
-                ClipboardQueueInbox inbox = new ClipboardQueueInbox();
-                ArrayList<ClipboardQueueEntry> entries = new ArrayList<>();
-                for (ClipboardQueueEntry entry : mStore.list(access.user)) {
+                ProfileInboxContents inbox = new ProfileInboxContents();
+                ArrayList<ProfileInboxEntry> entries = new ArrayList<>();
+                for (ProfileInboxEntry entry : mStore.list(access.user)) {
                     if (eligible(users().getUserInfo(entry.senderId), secretId())) {
                         UserInfo sender = access.peer(entry.senderId, entry.senderSerial);
                         entry.senderName = profileName(sender);
@@ -605,8 +605,8 @@ public final class ClipboardQueueService extends SystemService {
                         entries.add(entry);
                     }
                 }
-                inbox.entries = entries.toArray(new ClipboardQueueEntry[0]);
-                for (ClipboardQueueStore.ExpiryNotice notice : mStore.expiryNotices(access.user)) {
+                inbox.entries = entries.toArray(new ProfileInboxEntry[0]);
+                for (ProfileInboxStore.ExpiryNotice notice : mStore.expiryNotices(access.user)) {
                     if (eligible(users().getUserInfo(notice.senderId), secretId())) {
                         access.peer(notice.senderId, notice.senderSerial);
                         inbox.lastExpiredAt = Math.max(inbox.lastExpiredAt, notice.expiredAt);
@@ -641,10 +641,10 @@ public final class ClipboardQueueService extends SystemService {
         @PermissionManuallyEnforced
         public void clearInbox() {
             call("clearInbox", access -> {
-                for (ClipboardQueueEntry entry : mStore.list(access.user)) {
+                for (ProfileInboxEntry entry : mStore.list(access.user)) {
                     access.removalPeer(entry.senderId, entry.senderSerial);
                 }
-                for (ClipboardQueueStore.ExpiryNotice notice : mStore.expiryNotices(access.user)) {
+                for (ProfileInboxStore.ExpiryNotice notice : mStore.expiryNotices(access.user)) {
                     access.removalPeer(notice.senderId, notice.senderSerial);
                 }
                 mStore.clear(access.user);

@@ -432,7 +432,7 @@
     <protected-broadcast android:name="com.android.systemui.action.LAUNCH_SYSTEM_MEDIA_OUTPUT_DIALOG" />
     <protected-broadcast android:name="com.android.systemui.STARTED" />
 
-    <uses-permission android:name="android.permission.MANAGE_CLIPBOARD_QUEUE" />
+    <uses-permission android:name="android.permission.MANAGE_PROFILE_INBOX" />
     <uses-permission android:name="android.permission.HIDE_OVERLAY_WINDOWS" />
 
     <application
@@ -631,21 +631,21 @@
             </meta-data>
         </service>
 
-        <provider android:name=".clipboard.ClipboardQueueProvider"
-                  android:authorities="com.android.systemui.clipboardqueue"
+        <provider android:name=".profileinbox.ProfileInboxProvider"
+                  android:authorities="com.android.systemui.profileinbox"
                   android:exported="false"
                   android:grantUriPermissions="true"
                   android:directBootAware="false"
-                  android:process=":clipboard_queue" />
+                  android:process=":profile_inbox" />
 
-        <activity android:name=".clipboard.ClipboardQueueActivity"
+        <activity android:name=".profileinbox.ProfileInboxActivity"
                   android:exported="false"
                   android:directBootAware="false"
                   android:excludeFromRecents="true"
-                  android:process=":clipboard_queue"
-                  android:theme="@style/Theme.SystemUI.ClipboardQueue"
+                  android:process=":profile_inbox"
+                  android:theme="@style/Theme.SystemUI.ProfileInbox"
                   android:windowSoftInputMode="adjustResize|stateAlwaysHidden"
-                  android:label="@string/clipboard_queue_title" />
+                  android:label="@string/profile_inbox_title" />
 
         <activity android:name=".tuner.TunerActivity"
                   android:enabled="false"

@@ -17,9 +17,9 @@
 package android.content;
 
 /** @hide */
-public final class ClipboardQueueContract {
-    public static final String SERVICE_NAME = "clipboard_queue";
-    public static final String PERMISSION = "android.permission.MANAGE_CLIPBOARD_QUEUE";
+public final class ProfileInboxContract {
+    public static final String SERVICE_NAME = "profile_inbox";
+    public static final String PERMISSION = "android.permission.MANAGE_PROFILE_INBOX";
     public static final int CHUNK_BYTES = 48 * 1024;
     public static final int MAX_TEXT_BYTES = 128 * 1024;
     public static final int MAX_ITEM_BYTES = 8 * 1024 * 1024;
@@ -39,7 +39,7 @@ public final class ClipboardQueueContract {
 
     public static final int ERROR_STORAGE = 8;
 
-    private ClipboardQueueContract() {}
+    private ProfileInboxContract() {}
 
     public static String sniffImageMimeType(byte[] data, int length) {
         if (length >= 8 && data[0] == (byte) 137 && data[1] == 80 && data[2] == 78

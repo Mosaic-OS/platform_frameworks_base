@@ -1902,15 +1902,7 @@
     <string name="qs_data_switch_changed_2">Adatkártya váltása a SIM 2-re.</string>
     <string name="qs_data_switch_text_1">SIM 1</string>
     <string name="qs_data_switch_text_2">SIM 2</string>
-	  <string name="clipboard_share_title">Vágólap megosztás</string>
-    <string name="clipboard_share_success">Vágólap elküldve</string>
-    <string name="clipboard_share_error">Az küldés nem sikerült</string>
-    <string name="clipboard_share_empty">Üres vágólap</string>
-    <string name="clipboard_share_no_users">Nincs más felhasználó</string>
-    <string name="clipboard_share_not_running">Nem fut</string>
-    <string name="clipboard_share_start_button">Indítás</string>
-    <string name="clipboard_share_starting">Profil indítása…</string>
-    <string name="clipboard_share_start_profile_message">A vágólap megosztásához a profilnak futnia kell.\n\nElindítja a(z) „%1$s” profilt, és futásban tartja a megosztáshoz? Ez felülbírálja a háttérben futásra vonatkozó beállítását.</string>
+    <string name="profile_inbox_not_running">Nem fut</string>
 
     <string name="blutilities_bluetooth_off">Bluetooth kikapcsolva</string>
     <string name="blutilities_no_device">Nincs hangeszköz</string>

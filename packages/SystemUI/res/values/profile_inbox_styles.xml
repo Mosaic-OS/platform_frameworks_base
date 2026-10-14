@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 The MosaicOS Project; licensed under the Apache License, Version 2.0. -->
+<resources>
+    <style name="Theme.SystemUI.ProfileInbox" parent="Theme.Material3.DynamicColors.DayNight">
+        <item name="materialAlertDialogTheme">@style/ThemeOverlay.SystemUI.ProfileInbox.Picker</item>
+        <item name="colorPrimary">@*android:color/materialColorPrimary</item>
+        <item name="colorOnPrimary">@*android:color/materialColorOnPrimary</item>
+        <item name="colorSecondaryContainer">@*android:color/materialColorSecondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@*android:color/materialColorOnSecondaryContainer</item>
+        <item name="colorSurface">@*android:color/materialColorSurface</item>
+        <item name="colorSurfaceContainerLowest">@*android:color/materialColorSurfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@*android:color/materialColorSurfaceContainerLow</item>
+        <item name="colorSurfaceContainerHigh">@*android:color/materialColorSurfaceContainerHigh</item>
+        <item name="colorOnSurface">@*android:color/materialColorOnSurface</item>
+        <item name="colorOnSurfaceVariant">@*android:color/materialColorOnSurfaceVariant</item>
+        <item name="colorOutline">@*android:color/materialColorOutline</item>
+        <item name="colorOutlineVariant">@*android:color/materialColorOutlineVariant</item>
+        <item name="colorPrimaryInverse">@*android:color/materialColorInversePrimary</item>
+        <item name="colorSurfaceInverse">@*android:color/materialColorInverseSurface</item>
+        <item name="colorOnSurfaceInverse">@*android:color/materialColorInverseOnSurface</item>
+        <item name="snackbarButtonStyle">@style/ProfileInbox.SnackbarAction</item>
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+        <item name="android:windowActionBar">false</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowBackground">?attr/colorSurface</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">@bool/profile_inbox_light_bars</item>
+        <item name="android:windowLightNavigationBar">@bool/profile_inbox_light_bars</item>
+    </style>
+    <style name="ProfileInbox.ItemAction" parent="Widget.Material3.Button.TextButton">
+        <item name="android:minHeight">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:textAlignment">gravity</item>
+        <item name="android:textAppearance">@style/TextAppearance.Material3.LabelLarge</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:singleLine">false</item>
+    </style>
+    <style name="ProfileInbox.ItemAction.Primary" parent="ProfileInbox.ItemAction">
+        <item name="materialThemeOverlay">@style/ThemeOverlay.Material3.Button</item>
+        <item name="android:textColor">@color/m3_button_foreground_color_selector</item>
+        <item name="backgroundTint">@color/m3_button_background_color_selector</item>
+        <item name="rippleColor">@color/m3_button_ripple_color_selector</item>
+    </style>
+    <style name="ProfileInbox.SnackbarAction" parent="Widget.Material3.Button.TextButton.Snackbar">
+        <item name="android:textColor">?attr/colorPrimaryInverse</item>
+    </style>
+    <style name="ThemeOverlay.SystemUI.ProfileInbox.Picker" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="colorSurface">@*android:color/materialColorSurfaceContainerHigh</item>
+        <item name="android:textColorPrimary">@*android:color/materialColorOnSurface</item>
+        <item name="android:textColorSecondary">@*android:color/materialColorOnSurfaceVariant</item>
+        <item name="android:colorAccent">@*android:color/materialColorPrimary</item>
+        <item name="colorPrimary">@*android:color/materialColorPrimary</item>
+        <item name="alertDialogStyle">@style/ProfileInbox.Picker.Dialog</item>
+        <item name="android:dialogCornerRadius">28dp</item>
+        <item name="android:windowElevation">0dp</item>
+    </style>
+    <style name="ProfileInbox.Picker.Dialog" parent="MaterialAlertDialog.Material3">
+        <item name="backgroundTint">@*android:color/materialColorSurfaceContainerHigh</item>
+        <item name="shapeAppearance">@style/ShapeAppearance.ProfileInbox.Picker</item>
+    </style>
+    <style name="ShapeAppearance.ProfileInbox.Picker" parent="ShapeAppearance.Material3.Corner.ExtraLarge">
+        <item name="cornerSize">28dp</item>
+    </style>
+    <style name="ProfileInbox.Card" parent="Widget.Material3.CardView.Filled">
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainerLow</item>
+        <item name="cardCornerRadius">20dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeWidth">0dp</item>
+    </style>
+    <style name="ProfileInbox.TextBox" parent="ProfileInbox.Card">
+        <item name="cardBackgroundColor">?attr/colorSurfaceContainerLowest</item>
+        <item name="cardCornerRadius">16dp</item>
+    </style>
+    <style name="ProfileInbox.Segment" parent="@android:style/Widget.Material.Button.Borderless">
+        <item name="android:background">@null</item>
+        <item name="android:backgroundTint">@null</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:elevation">0dp</item>
+        <item name="android:textAppearance">@style/TextAppearance.Material3.LabelLarge</item>
+        <item name="android:textColor">@color/profile_inbox_segment_foreground</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">48dp</item>
+        <item name="android:minWidth">0dp</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
+        <item name="android:paddingTop">8dp</item>
+        <item name="android:paddingBottom">8dp</item>
+        <item name="android:singleLine">false</item>
+    </style>
+    <style name="ShapeAppearance.ProfileInbox.Thumbnail" parent="">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+    <bool name="profile_inbox_light_bars">true</bool>
+</resources>

@@ -34,11 +34,11 @@ import com.android.systemui.qs.QSHost
 import com.android.systemui.qs.QsEventLogger
 import com.android.systemui.qs.logging.QSLogger
 import com.android.systemui.qs.tileimpl.QSTileImpl
-import com.android.systemui.qs.tiles.dialog.ClipboardShareDialogManager
+import com.android.systemui.qs.tiles.dialog.ProfileInboxDialogManager
 import com.android.systemui.res.R
 import javax.inject.Inject
 
-class ClipboardShareTile @Inject constructor(
+class ProfileInboxTile @Inject constructor(
     host: QSHost,
     uiEventLogger: QsEventLogger,
     @Background backgroundLooper: Looper,
@@ -48,14 +48,14 @@ class ClipboardShareTile @Inject constructor(
     statusBarStateController: StatusBarStateController,
     activityStarter: ActivityStarter,
     qsLogger: QSLogger,
-    private val dialogManager: ClipboardShareDialogManager,
+    private val dialogManager: ProfileInboxDialogManager,
 ) : QSTileImpl<QSTile.BooleanState>(
     host, uiEventLogger, backgroundLooper, mainHandler,
     falsingManager, metricsLogger, statusBarStateController,
     activityStarter, qsLogger
 ) {
     companion object {
-        const val TILE_SPEC = "clipboard_share"
+        const val TILE_SPEC = "profile_inbox"
     }
 
     private val lockPatternUtils by lazy { LockPatternUtils(mContext) }
@@ -63,11 +63,16 @@ class ClipboardShareTile @Inject constructor(
     override fun newTileState() = QSTile.BooleanState()
 
     override fun handleClick(expandable: Expandable?) {
-        mainHandler.post { dialogManager.create(mContext, expandable) }
+        openProfileInbox(expandable, false)
     }
 
     override fun handleLongClick(expandable: Expandable?) {
-        handleClick(expandable)
+        openProfileInbox(expandable, true)
+    }
+
+    private fun openProfileInbox(expandable: Expandable?, openInbox: Boolean) {
+        if (ActivityManager.getCurrentUser() == lockPatternUtils.getSecretProfileUserId()) return
+        mainHandler.post { dialogManager.create(mContext, expandable, openInbox) }
     }
 
     override fun getLongClickIntent(): Intent? = null
@@ -78,12 +83,12 @@ class ClipboardShareTile @Inject constructor(
         state.icon = ResourceIcon.get(R.drawable.ic_content_paste)
         state.state = if (secret) Tile.STATE_UNAVAILABLE else Tile.STATE_INACTIVE
         state.secondaryLabel = mContext.getString(
-            if (secret) R.string.clipboard_queue_unavailable else R.string.clipboard_queue_tile_hint
+            if (secret) R.string.profile_inbox_unavailable else R.string.profile_inbox_tile_hint
         )
         state.value = false
     }
 
     override fun isAvailable() = true
 
-    override fun getTileLabel(): CharSequence = mContext.getString(R.string.clipboard_queue_title)
+    override fun getTileLabel(): CharSequence = mContext.getString(R.string.profile_inbox_title)
 }

@@ -9,6 +9,7 @@ import com.android.systemui.dagger.qualifiers.Application
 import com.android.systemui.dagger.qualifiers.Background
 import com.android.systemui.qs.pipeline.data.model.RestoreData
 import com.android.systemui.qs.pipeline.shared.InternetTileMigration.migrateInternetTile
+import com.android.systemui.qs.pipeline.shared.ProfileInboxTileMigration.migrateProfileInboxTile
 import com.android.systemui.qs.pipeline.shared.TileSpec
 import com.android.systemui.qs.pipeline.shared.TilesUpgradePath
 import com.android.systemui.qs.pipeline.shared.logging.QSPipelineLogger
@@ -83,6 +84,7 @@ constructor(
                             // tile. We know that that should never happen and it should always
                             // be replaced with `wifi`.
                             .migrateInternetTile()
+                            .migrateProfileInboxTile()
                             .also { afterRestore ->
                                 if (current != afterRestore) {
                                     if (change is RestoreTiles) {
@@ -181,7 +183,7 @@ constructor(
     }
 
     private suspend fun loadTilesFromSettingsAndParse(userId: Int): List<TileSpec> {
-        val loadedTiles = loadTilesFromSettings(userId)
+        val loadedTiles = loadTilesFromSettings(userId).migrateProfileInboxTile()
         if (loadedTiles.isNotEmpty()) {
             _tilesUpgradePath.send(TilesUpgradePath.ReadFromSettings(loadedTiles.toSet()))
         } else {

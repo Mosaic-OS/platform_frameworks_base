@@ -21,18 +21,20 @@ import android.content.Context
 import android.content.Intent
 import android.os.UserHandle
 import com.android.systemui.animation.Expandable
-import com.android.systemui.clipboard.ClipboardQueueActivity
+import com.android.systemui.profileinbox.ProfileInboxActivity
 import com.android.systemui.dagger.SysUISingleton
 import com.android.systemui.plugins.ActivityStarter
 import javax.inject.Inject
 
 @SysUISingleton
-class ClipboardShareDialogManager @Inject constructor(
+class ProfileInboxDialogManager @Inject constructor(
     private val activityStarter: ActivityStarter,
 ) {
-    fun create(context: Context, expandable: Expandable?) {
-        val intent = Intent(context, ClipboardQueueActivity::class.java)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+    fun create(context: Context, expandable: Expandable?, openInbox: Boolean = false) {
+        val intent = ProfileInboxActivity.createIntent(context, openInbox)
+            .addFlags(
+                Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
         activityStarter.postStartActivityDismissingKeyguard(
             intent, 0, null, null, UserHandle.of(ActivityManager.getCurrentUser())
         )
