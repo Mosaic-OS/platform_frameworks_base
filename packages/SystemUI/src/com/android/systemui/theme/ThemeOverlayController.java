@@ -186,7 +186,7 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
     // Defers changing themes until Setup Wizard is done.
     private boolean mDeferredThemeEvaluation;
     // Determines if we should ignore THEME_CUSTOMIZATION_OVERLAY_PACKAGES setting changes.
-    private boolean mSkipSettingChange;
+    private volatile boolean mSkipSettingChange;
 
     private final DeviceProvisionedListener mDeviceProvisionedListener =
             new DeviceProvisionedListener() {
@@ -225,7 +225,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                     ? ThemeOverlayController.this.mIsKeyguardOnAsleepState.getValue()
                     : mWakefulnessLifecycle.getWakefulness() != WAKEFULNESS_ASLEEP;
 
-            if (currentUser && !mAcceptColorEvents && isAsleep) {
+            // A user without colours shows the fallback seed, so its first colours are applied at once
+            if (currentUser && !mAcceptColorEvents && isAsleep && currentColors != null) {
                 mDeferredWallpaperColors.put(userId, wallpaperColors);
                 mDeferredWallpaperColorsFlags.put(userId, which);
                 Log.i(TAG, "colors received; processing deferred until screen off: "
@@ -260,6 +261,8 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 return;
             }
 
+            // A pending echo of SystemUI's own write for the previous user must not skip this user's changes
+            mSkipSettingChange = false;
             if (DEBUG) Log.d(TAG, "Updating overlays for user switch / profile added.");
             reevaluateSystemTheme(true /* forceReload */);
         }
@@ -505,14 +508,16 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                         if (mUserTracker.getUserId() != userId) {
                             return;
                         }
-                        if (!mDeviceProvisionedController.isUserSetup(userId)) {
-                            Log.i(TAG, "Theme application deferred when setting changed.");
-                            mDeferredThemeEvaluation = true;
-                            return;
-                        }
+                        // Consume the echo of SystemUI's own write first, or it swallows the next
+                        // real change once setup is complete.
                         if (mSkipSettingChange) {
                             if (DEBUG) Log.d(TAG, "Skipping setting change");
                             mSkipSettingChange = false;
+                            return;
+                        }
+                        if (!mDeviceProvisionedController.isUserSetup(userId)) {
+                            Log.i(TAG, "Theme application deferred when setting changed.");
+                            mDeferredThemeEvaluation = true;
                             return;
                         }
                         reevaluateSystemTheme(true /* forceReload */);
@@ -622,14 +627,16 @@ public class ThemeOverlayController implements CoreStartable, Dumpable {
                 UserHandle.USER_ALL);
 
         Runnable whenAsleepHandler = () -> {
-            final WallpaperColors colors = mDeferredWallpaperColors.get(userId);
+            // Deferred colours belong to whoever is current now, not to the user SystemUI started with
+            final int currentUser = mUserTracker.getUserId();
+            final WallpaperColors colors = mDeferredWallpaperColors.get(currentUser);
             if (colors != null) {
-                int flags = mDeferredWallpaperColorsFlags.get(userId);
+                int flags = mDeferredWallpaperColorsFlags.get(currentUser);
 
-                mDeferredWallpaperColors.put(userId, null);
-                mDeferredWallpaperColorsFlags.put(userId, 0);
+                mDeferredWallpaperColors.put(currentUser, null);
+                mDeferredWallpaperColorsFlags.put(currentUser, 0);
 
-                handleWallpaperColors(colors, flags, userId);
+                handleWallpaperColors(colors, flags, currentUser);
             }
         };
 
