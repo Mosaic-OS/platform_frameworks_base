@@ -114,6 +114,7 @@ import android.provider.Settings.Config.SyncDisabledMode;
 import android.provider.Settings.Global;
 import android.provider.Settings.Secure;
 import android.provider.Settings.SetAllResult;
+import android.provider.settings.validators.SecureSettingsValidators;
 import android.provider.settings.validators.SystemSettingsValidators;
 import android.provider.settings.validators.Validator;
 import android.text.TextUtils;
@@ -1979,6 +1980,15 @@ public class SettingsProvider extends ContentProvider {
         enforceHasAtLeastOnePermission(Manifest.permission.WRITE_SECURE_SETTINGS);
 
         checkProtectedSettingAccess(/* isRead */ false, name, sProtectedSecureSettings);
+
+        if ((Settings.Secure.SCREENSHOT_PROTECTION_ALLOWED_PACKAGES.equals(name)
+                || Settings.Secure.SCREENSHOT_PROTECTION_PACKAGE_IDENTITIES.equals(name)
+                || Settings.Secure.SCREENSHOT_PROTECTION_BLOCKED_PACKAGES.equals(name)
+                || Settings.Secure.SCREENSHOT_PROTECTION_DETECTED_PACKAGES.equals(name))
+                && (operation == MUTATION_OPERATION_INSERT || operation == MUTATION_OPERATION_UPDATE)
+                && !SecureSettingsValidators.VALIDATORS.get(name).validate(value)) {
+            return false;
+        }
 
         // Resolve the userId on whose behalf the call is made.
         final int callingUserId = resolveCallingUserIdEnforcingPermissions(requestingUserId);

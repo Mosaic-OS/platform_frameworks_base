@@ -807,6 +807,7 @@ public class WindowManagerService extends IWindowManager.Stub
     WindowManagerInternal.OnImeRequestedChangedListener mOnImeRequestedChangedListener;
 
     SettingsObserver mSettingsObserver;
+    final ScreenshotProtectionController mScreenshotProtectionController;
     final EmbeddedWindowController mEmbeddedWindowController;
     final AnrController mAnrController;
 
@@ -1525,6 +1526,7 @@ public class WindowManagerService extends IWindowManager.Stub
 
         mLatencyTracker = LatencyTracker.getInstance(context);
 
+        mScreenshotProtectionController = new ScreenshotProtectionController(this);
         mSettingsObserver = new SettingsObserver();
 
         mSurfaceAnimationRunner = new SurfaceAnimationRunner(mTransactionFactory,
@@ -1981,6 +1983,7 @@ public class WindowManagerService extends IWindowManager.Stub
 
             win.mSession.onWindowAdded(win);
             mWindowMap.put(client.asBinder(), win);
+            mScreenshotProtectionController.recordSecureWindowLocked(win);
             win.initAppOpsState();
 
             final boolean suspended = mPmInternal.isPackageSuspended(win.getOwningPackage(),
@@ -2749,6 +2752,7 @@ public class WindowManagerService extends IWindowManager.Stub
                     && win.hasWallpaper();
             wallpaperMayMove |= (flagChanges & FLAG_SHOW_WALLPAPER) != 0;
             if ((flagChanges & FLAG_SECURE) != 0) {
+                mScreenshotProtectionController.recordSecureWindowLocked(win);
                 win.setSecureLocked(win.isSecureLocked());
             }
 
@@ -6088,6 +6092,7 @@ public class WindowManagerService extends IWindowManager.Stub
         mPolicy.systemReady();
         mRoot.forAllDisplayPolicies(DisplayPolicy::systemReady);
         mSnapshotController.systemReady();
+        mScreenshotProtectionController.start();
         mAppCompatCameraPolicy.start();
         UiThread.getHandler().post(mSettingsObserver::loadSettings);
         IVrManager vrManager = IVrManager.Stub.asInterface(
@@ -7311,6 +7316,8 @@ public class WindowManagerService extends IWindowManager.Stub
 
     private void dumpWindowsLocked(PrintWriter pw, boolean dumpAll,
             ArrayList<WindowState> windows) {
+        mScreenshotProtectionController.dumpLocked(pw);
+        pw.println();
         pw.println("WINDOW MANAGER WINDOWS (dumpsys window windows)");
         mRoot.dumpWindowsNoHeader(pw, dumpAll, windows);
 

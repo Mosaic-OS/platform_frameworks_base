@@ -298,6 +298,8 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
     final int mAppOp;
     // UserId and appId of the owner. Don't display windows of non-current user.
     final int mOwnerUid;
+    // Cache the owning user's key to avoid boxing in secure-window checks.
+    final Integer mScreenshotProtectionUserId;
     /**
      * Requested userId, if this is not equals with the userId from mOwnerUid, then this window is
      * created for secondary user.
@@ -1074,6 +1076,7 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
         mDisplayContent = token.mDisplayContent;
         mActivityRecord = mToken.asActivityRecord();
         mOwnerUid = ownerId;
+        mScreenshotProtectionUserId = android.os.UserHandle.getUserId(ownerId);
         mShowUserId = showUserId;
         mOwnerCanAddInternalSystemWindow = ownerCanAddInternalSystemWindow;
         mWindowId = new WindowId(this);
@@ -1965,7 +1968,12 @@ class WindowState extends WindowContainer<WindowState> implements WindowManagerP
             return false;
         }
 
-        if ((mAttrs.flags & WindowManager.LayoutParams.FLAG_SECURE) != 0) {
+        if (mWmService.mScreenshotProtectionController.isBlockedLocked(this)) {
+            return true;
+        }
+
+        if ((mAttrs.flags & WindowManager.LayoutParams.FLAG_SECURE) != 0
+                && !mWmService.mScreenshotProtectionController.isAllowedLocked(this)) {
             return true;
         }
 

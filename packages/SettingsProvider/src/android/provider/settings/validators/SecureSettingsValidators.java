@@ -43,6 +43,8 @@ import android.util.ArrayMap;
 import android.util.ArraySet;
 import android.view.ViewConfiguration;
 
+import com.android.internal.util.ScreenshotProtectionUtils;
+
 import java.util.Map;
 
 /**
@@ -565,6 +567,14 @@ public class SecureSettingsValidators {
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_TIMEOUT,
                 new InclusiveIntegerRangeValidator(0, 3600));
         VALIDATORS.put(Secure.TORCH_LONG_PRESS_POWER_VIBRATE, BOOLEAN_VALIDATOR);
+        VALIDATORS.put(Secure.SCREENSHOT_PROTECTION_PACKAGE_IDENTITIES,
+                ScreenshotProtectionUtils::areIdentitiesValid);
+        VALIDATORS.put(Secure.SCREENSHOT_PROTECTION_ALLOWED_PACKAGES,
+                ScreenshotProtectionUtils::isValid);
+        VALIDATORS.put(Secure.SCREENSHOT_PROTECTION_BLOCKED_PACKAGES,
+                ScreenshotProtectionUtils::isValid);
+        VALIDATORS.put(Secure.SCREENSHOT_PROTECTION_DETECTED_PACKAGES,
+                ScreenshotProtectionUtils::isValid);
         VALIDATORS.put(Secure.STATUS_BAR_QUICK_QS_PULLDOWN,
                 new InclusiveIntegerRangeValidator(0, 3));
         VALIDATORS.put(Secure.SHOW_NAVIGATION_PILL, BOOLEAN_VALIDATOR);

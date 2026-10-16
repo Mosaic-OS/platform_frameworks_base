@@ -7623,6 +7623,22 @@ public final class Settings {
         */
         public static final String STATUS_BAR_QUICK_QS_PULLDOWN = "status_bar_quick_qs_pulldown";
 
+        /** @hide */
+        public static final String SCREENSHOT_PROTECTION_ALLOWED_PACKAGES =
+                "screenshot_protection_allowed_packages";
+
+        /** @hide */
+        public static final String SCREENSHOT_PROTECTION_PACKAGE_IDENTITIES =
+                "screenshot_protection_package_identities";
+
+        /** @hide */
+        public static final String SCREENSHOT_PROTECTION_BLOCKED_PACKAGES =
+                "screenshot_protection_blocked_packages";
+
+        /** @hide */
+        public static final String SCREENSHOT_PROTECTION_DETECTED_PACKAGES =
+                "screenshot_protection_detected_packages";
+
         /**
          * Custom blur & transparency
          */
