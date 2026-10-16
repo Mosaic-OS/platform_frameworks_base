@@ -107,14 +107,34 @@ constructor(
         // Use the preferred editor if it's available, otherwise fall back to the default editor
         editIntent.component = preferredEditor() ?: defaultEditor()
 
-        return editIntent
+        editIntent
             .setDataAndType(uri, "image/png")
             .putExtra(EXTRA_EDIT_SOURCE, EDIT_SOURCE_SCREENSHOT)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             .addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TASK)
+        // With no editor installed, opening the screenshot in the gallery beats a dead action
+        return if (editIntent.component == null && !hasHandler(editIntent)) createView(rawUri)
+        else editIntent
     }
+
+    /** @return an ACTION_VIEW intent that opens the given URI in the gallery. */
+    fun createView(rawUri: Uri): Intent =
+        Intent(Intent.ACTION_VIEW)
+            .setDataAndType(uriWithoutUserId(rawUri), "image/png")
+            .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+
+    private suspend fun hasHandler(intent: Intent): Boolean =
+        withContext(backgroundDispatcher) {
+            runCatching {
+                    packageManager
+                        .queryIntentActivities(intent, PackageManager.MATCH_DEFAULT_ONLY)
+                        .isNotEmpty()
+                }
+                .getOrDefault(true)
+        }
 
     /** @return an Intent to start the LongScreenshotActivity */
     fun createLongScreenshotIntent(owner: UserHandle, originalScreenshotUri: Uri): Intent {

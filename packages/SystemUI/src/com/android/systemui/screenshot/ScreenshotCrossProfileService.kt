@@ -17,6 +17,7 @@
 package com.android.systemui.screenshot
 
 import android.app.Service
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.os.IBinder
@@ -32,7 +33,11 @@ class ScreenshotCrossProfileService : Service() {
     private val mBinder: IBinder =
         object : ICrossProfileService.Stub() {
             override fun launchIntent(intent: Intent, bundle: Bundle?) {
-                startActivity(intent, bundle)
+                try {
+                    startActivity(intent, bundle)
+                } catch (e: ActivityNotFoundException) {
+                    Log.w(TAG, "No activity found for screenshot action ${intent.action}")
+                }
             }
         }
 

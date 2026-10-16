@@ -18,6 +18,7 @@ package com.android.systemui.screenshot
 
 import android.app.ActivityOptions
 import android.app.ExitTransitionCoordinator
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.os.Bundle
@@ -92,9 +93,17 @@ constructor(
         }
 
         if (user == myUserHandle()) {
-            withContext(mainDispatcher) {
-                context.startActivity(intent, transitionOptions?.toBundle())
-            }
+            val started =
+                withContext(mainDispatcher) {
+                    try {
+                        context.startActivity(intent, transitionOptions?.toBundle())
+                        true
+                    } catch (e: ActivityNotFoundException) {
+                        Log.w(TAG, "No activity found for screenshot action ${intent.action}")
+                        false
+                    }
+                }
+            if (!started) return
         } else {
             launchCrossProfileIntent(user, intent, transitionOptions?.toBundle())
         }
