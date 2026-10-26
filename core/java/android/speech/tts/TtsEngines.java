@@ -71,6 +71,9 @@ public class TtsEngines {
      * like "en_US") */
     private static final String LOCALE_DELIMITER_NEW = "_";
 
+    /** Engines declaring this meta-data serve only their own app, so engine lists skip them. */
+    private static final String META_DATA_PRIVATE_ENGINE = "mosaicos.tts.private_engine";
+
     private final Context mContext;
 
     /** Mapping of various language strings to the normalized Locale form */
@@ -115,7 +118,22 @@ public class TtsEngines {
     public String getDefaultEngine() {
         String engine = getString(mContext.getContentResolver(),
                 Settings.Secure.TTS_DEFAULT_SYNTH);
-        return isEngineInstalled(engine) ? engine : getHighestRankedEngineName();
+        return isEngineInstalled(engine) && !isPrivateEngine(engine)
+                ? engine : getHighestRankedEngineName();
+    }
+
+    private boolean isPrivateEngine(String packageName) {
+        Intent intent = new Intent(Engine.INTENT_ACTION_TTS_SERVICE);
+        intent.setPackage(packageName);
+        List<ResolveInfo> resolveInfos = mContext.getPackageManager().queryIntentServices(intent,
+                PackageManager.MATCH_DEFAULT_ONLY | PackageManager.GET_META_DATA);
+        return resolveInfos != null && resolveInfos.size() == 1
+                && isPrivateEngine(resolveInfos.get(0).serviceInfo);
+    }
+
+    private static boolean isPrivateEngine(ServiceInfo service) {
+        return service != null && service.metaData != null
+                && service.metaData.getBoolean(META_DATA_PRIVATE_ENGINE, false);
     }
 
     /**
@@ -161,13 +179,14 @@ public class TtsEngines {
     public List<EngineInfo> getEngines() {
         PackageManager pm = mContext.getPackageManager();
         Intent intent = new Intent(Engine.INTENT_ACTION_TTS_SERVICE);
-        List<ResolveInfo> resolveInfos =
-                pm.queryIntentServices(intent, PackageManager.MATCH_DEFAULT_ONLY);
+        List<ResolveInfo> resolveInfos = pm.queryIntentServices(intent,
+                PackageManager.MATCH_DEFAULT_ONLY | PackageManager.GET_META_DATA);
         if (resolveInfos == null) return Collections.emptyList();
 
         List<EngineInfo> engines = new ArrayList<EngineInfo>(resolveInfos.size());
 
         for (ResolveInfo resolveInfo : resolveInfos) {
+            if (isPrivateEngine(resolveInfo.serviceInfo)) continue;
             EngineInfo engine = getEngineInfo(resolveInfo, pm);
             if (engine != null) {
                 engines.add(engine);
