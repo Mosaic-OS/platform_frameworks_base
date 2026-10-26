@@ -146,7 +146,9 @@ public class ZygoteInit {
             Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
         }
         Trace.traceBegin(Trace.TRACE_TAG_DALVIK, "PreloadGraphicsDriver");
-        maybePreloadGraphicsDriver();
+        if (fullPreload) {
+            maybePreloadGraphicsDriver();
+        }
         Trace.traceEnd(Trace.TRACE_TAG_DALVIK);
         preloadSharedLibraries();
         preloadTextResources();
@@ -180,7 +182,8 @@ public class ZygoteInit {
             // run the privileged class initializers while the process is running in
             // the zygote SELinux context
             // noinspection unused
-            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE + RoSystemProperties.FACTORYTEST;
+            int val = android.util.DisplayMetrics.DENSITY_DEVICE_STABLE
+                    + RoSystemProperties.FACTORYTEST + Build.VERSION.KNOWN_CODENAMES.size();
         }
         Log.d(TAG, "end preload");
 

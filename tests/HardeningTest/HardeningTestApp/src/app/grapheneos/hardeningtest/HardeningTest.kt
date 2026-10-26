@@ -2,6 +2,7 @@ package app.grapheneos.hardeningtest
 
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import android.os.Environment
 import android.os.ParcelFileDescriptor
 import android.os.Process
@@ -13,6 +14,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.util.concurrent.TimeUnit
 import kotlin.reflect.KClass
 
 private val TAG = HardeningTest::class.java.simpleName
@@ -23,9 +25,11 @@ class HardeningTest {
     val mainProcessPid = Process.myPid()
 
     @Rule @JvmField
-    val serviceRule = ServiceTestRule()
+    val serviceRule = ServiceTestRule.withTimeout(
+        5L * Build.HW_TIMEOUT_MULTIPLIER, TimeUnit.SECONDS)
     @Rule @JvmField
-    val isolatedServiceRule = ServiceTestRule()
+    val isolatedServiceRule = ServiceTestRule.withTimeout(
+        5L * Build.HW_TIMEOUT_MULTIPLIER, TimeUnit.SECONDS)
 
     val service: ITestService by lazy {
         bindService(serviceRule, TestService::class)

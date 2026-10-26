@@ -28,6 +28,7 @@ import android.compat.annotation.UnsupportedAppUsage;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.ContextWrapper;
 import android.content.IIntentReceiver;
 import android.content.Intent;
 import android.content.ServiceConnection;
@@ -74,6 +75,7 @@ import android.view.DisplayAdjustments;
 import com.android.internal.R;
 import com.android.internal.annotations.GuardedBy;
 import com.android.internal.gmscompat.GmcDebug;
+import com.android.internal.gmscompat.util.SynchronousServiceBinding;
 import com.android.internal.os.DebugStore;
 import com.android.internal.os.RuntimeInit;
 import com.android.internal.util.ArrayUtils;
@@ -2217,9 +2219,39 @@ public final class LoadedApk {
         synchronized (mServices) {
             ArrayMap<ServiceConnection, LoadedApk.ServiceDispatcher> map
                     = mServices.get(context);
+            if (map == null
+                    && c instanceof SynchronousServiceBinding.ServiceConnectionImpl
+                    && context instanceof ContextWrapper contextWrapper) {
+                // SynchronousServiceBinding is used by GmsCompat before app's Application class
+                // is initialized, which leads to a context mismatch between bindService() and
+                // unbindService(). Those methods use ContextImpl.getOuterContext(), which
+                // gets overwritten after Application class init.
+                Context baseContext = contextWrapper.getBaseContext();
+                map = mServices.get(baseContext);
+                if (map != null) {
+                    context = baseContext;
+                    Log.d(TAG, "forgetServiceDispatcher: using baseContext for SynchronousServiceBinding," +
+                            " original services map is null");
+                }
+            }
             LoadedApk.ServiceDispatcher sd = null;
             if (map != null) {
                 sd = map.get(c);
+                if (sd == null
+                        && c instanceof SynchronousServiceBinding.ServiceConnectionImpl
+                        && context instanceof ContextWrapper contextWrapper) {
+                    // see SynchronousServiceBinding comment above
+                    Context baseContext = contextWrapper.getBaseContext();
+                    ArrayMap<ServiceConnection, LoadedApk.ServiceDispatcher> baseMap = mServices.get(baseContext);
+                    if (baseMap != null) {
+                        sd = baseMap.get(c);
+                        if (sd != null) {
+                            map = baseMap;
+                            context = baseContext;
+                            Log.d(TAG, "forgetServiceDispatcher: using baseContext for SynchronousServiceBinding");
+                        }
+                    }
+                }
                 if (sd != null) {
                     if (DEBUG) Slog.d(TAG, "Removing dispatcher " + sd + " for conn " + c);
                     map.remove(c);
@@ -2449,7 +2481,7 @@ public final class LoadedApk {
             // If there was an old service, it is now disconnected.
             if (old != null) {
                 if (GmsCompat.isEnabled()) {
-                    GmcDebug.maybeLogServiceConnCallback("onServiceDisconnected_old", name);
+                    GmcDebug.maybeLogServiceConnCallback(mConnection, "onServiceDisconnected_old", name);
                 }
                 mConnection.onServiceDisconnected(name);
             }
@@ -2470,7 +2502,7 @@ public final class LoadedApk {
                 }
             }
             if (GmsCompat.isEnabled()) {
-                GmcDebug.maybeLogServiceConnCallback(op, name);
+                GmcDebug.maybeLogServiceConnCallback(mConnection, op, name);
             }
         }
 
@@ -2487,7 +2519,7 @@ public final class LoadedApk {
             }
 
             if (GmsCompat.isEnabled()) {
-                GmcDebug.maybeLogServiceConnCallback("onServiceDisconnected", name);
+                GmcDebug.maybeLogServiceConnCallback(mConnection, "onServiceDisconnected", name);
             }
 
             mConnection.onServiceDisconnected(name);
