@@ -2119,6 +2119,21 @@ public final class ProcessList extends ProcessListInternal
                     }
                 }
             }
+            // App and WebView zygote children inherit the defining package's shared app GID.
+            // Exec-spawned replacements start from the primary zygote, so request it explicitly.
+            if (zygoteExtArgs.shouldUseExecSpawning() && ArrayUtils.isEmpty(gids)
+                    && (hostingRecord.usesWebviewZygote_()
+                            || hostingRecord.isAppZygoteReplacement())) {
+                gids = new int[] { UserHandle.getSharedAppGid(
+                        UserHandle.getAppId(hostingRecord.getDefiningUid())) };
+                app.setGids(gids);
+            }
+            // App and WebView zygote children inherit NO_NEW_PRIVS from their parent.
+            // Exec-spawned replacements start from the primary zygote, so request it explicitly.
+            if (zygoteExtArgs.shouldUseExecSpawning() && (hostingRecord.usesWebviewZygote_()
+                    || hostingRecord.isAppZygoteReplacement())) {
+                zygoteExtArgs.setFlag(ZygoteExtraArgs.Flag.SET_NO_NEW_PRIVS, true);
+            }
 
             // the per-user SELinux context must be set
             if (TextUtils.isEmpty(app.info.seInfoUser)) {
