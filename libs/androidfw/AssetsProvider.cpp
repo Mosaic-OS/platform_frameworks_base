@@ -243,6 +243,13 @@ std::unique_ptr<Asset> ZipAssetsProvider::OpenInternal(const std::string& path,
     return asset;
   }
 
+  // Mapped at its uncompressed size, so any part past EOF would SIGBUS on read (GhostMap).
+  if (entry.offset + entry.uncompressed_length > array_info.archive_size) {
+    LOG(ERROR) << "Uncompressed size " << entry.uncompressed_length << " of the file '" << path
+               << "' runs past the end of APK '" << name_.GetDebugName() << "'";
+    return {};
+  }
+
   if (!asset_map.Create(fd, entry.offset + fd_offset, entry.uncompressed_length,
                         name_.GetDebugName().c_str(), incremental_hardening)) {
     LOG(ERROR) << "Failed to mmap file '" << path << "' in APK '" << name_.GetDebugName() << "'";
